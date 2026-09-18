@@ -326,6 +326,39 @@ body {
   color: var(--navy-700);
 }
 
+/* Speed Read */
+.speed-read-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-sm);
+}
+@media (min-width: 640px) {
+  .speed-read-list { grid-template-columns: 1fr 1fr; }
+}
+.speed-read-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: var(--border);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--slate-700);
+}
+.speed-read-num {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--navy-700);
+  background: var(--navy-100);
+  border-radius: 50%;
+}
+
 /* Sector heat */
 .sector-heat {
   display: flex;
@@ -1455,6 +1488,13 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
       </div>
     </div>
 
+    <div class="summary-card" id="speedReadCard" style="margin-bottom: var(--space-xl);">
+      <h3>Speed Read — 10 Things to Know</h3>
+      <div class="speed-read-list" id="speedReadList">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+
     <div class="summary-grid">
       <div class="summary-card">
         <h3>Watch List Delta — vs Last Week</h3>
@@ -1806,6 +1846,22 @@ function renderSummary() {
     }).join(' ');
   } else {
     summaryEl.textContent = 'No high-impact items flagged this week.';
+  }
+
+  // Speed Read — quick numbered bullets from the edition's own published list.
+  const speedReadCard = document.getElementById('speedReadCard');
+  const speedReadEl = document.getElementById('speedReadList');
+  const speedRead = currentEdition.speed_read || [];
+  if (speedRead.length > 0) {
+    speedReadCard.style.display = '';
+    speedReadEl.innerHTML = speedRead.map((s, idx) => `
+      <div class="speed-read-item">
+        <span class="speed-read-num">${idx + 1}</span>
+        <span>${esc(s)}</span>
+      </div>
+    `).join('');
+  } else {
+    speedReadCard.style.display = 'none';
   }
 
   // Sector heat
