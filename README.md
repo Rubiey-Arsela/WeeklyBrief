@@ -15,7 +15,8 @@
   - **Read Aloud**: narration via Gemini TTS (requires a `GEMINI_API_KEY` secret — see below); degrades to a clear "not configured" message otherwise
 
 ## URLs
-- **Production**: https://4885e888-466b-40fb-921f-d42d91dc863a.vip.gensparksite.com
+- **Production (Cloudflare Pages)**: https://maida-vale-weekly-brief.pages.dev
+- **Legacy (Genspark-hosted)**: https://4885e888-466b-40fb-921f-d42d91dc863a.vip.gensparksite.com
 - **GitHub**: https://github.com/Rubiey-Arsela/WeeklyBrief
 
 ## API Endpoints
@@ -51,10 +52,14 @@
 6. **Read Aloud** narrates the report section by section — requires the `GEMINI_API_KEY` secret to be set (see Deployment below); without it, the button reports "narration not configured" instead of failing silently.
 
 ## Deployment
-- **Platform**: Cloudflare Workers for Platforms, deployed via Genspark-hosted deploy (`gsk hosted deploy`)
+- **Platform**: Cloudflare Pages, deployed directly to the client's own Cloudflare account via `wrangler` (BYOK)
+  - Project name: `maida-vale-weekly-brief`
+  - D1 database: `maida-vale-weekly-brief-db`
+  - R2 bucket: `maida-vale-weekly-brief-bucket`
+  - A previous deployment also exists on Genspark-hosted Workers for Platforms (`gsk hosted deploy`) — kept live as a legacy/backup URL, not the primary link.
 - **Status**: ✅ Active
 - **Tech Stack**: Hono + TypeScript, Cloudflare D1, Cloudflare R2, `pdf-lib` (PDF export), `docx` (Word export)
-- **Enabling narration**: set a Gemini API key as a Worker secret, e.g. `gsk hosted secret_put --name GEMINI_API_KEY --value "$KEY"`
+- **Enabling narration**: set a Gemini API key as a Worker secret on the Pages project, e.g. `npx wrangler pages secret put GEMINI_API_KEY --project-name maida-vale-weekly-brief`
 - **Last Updated**: 2026-09-18
 
 ## Porting notes (from the original Flask prototype)

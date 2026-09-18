@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "webapp",
+  "name": "maida-vale-weekly-brief",
   "compatibility_date": "2026-09-08",
   "pages_build_output_dir": "./dist",
   "compatibility_flags": [
@@ -9,14 +9,14 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "webapp-production",
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_name": "maida-vale-weekly-brief-db",
+      "database_id": "33277254-e612-49f0-bce8-80fe54d01bdf"
     }
   ],
   "r2_buckets": [
     {
       "binding": "R2",
-      "bucket_name": "webapp-bucket"
+      "bucket_name": "maida-vale-weekly-brief-bucket"
     }
   ]
 }
