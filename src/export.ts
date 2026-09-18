@@ -11,7 +11,8 @@ import {
 import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from 'pdf-lib'
 import type { ViewModel, Note } from './types'
 
-const NAVY = { r: 0x1e / 255, g: 0x2b / 255, b: 0x47 / 255 }
+// Maida Vale brand green (#295650), matching the masthead/logo colour.
+const NAVY = { r: 0x29 / 255, g: 0x56 / 255, b: 0x50 / 255 }
 const SLATE = { r: 0x64 / 255, g: 0x74 / 255, b: 0x8b / 255 }
 const RED = { r: 0x99 / 255, g: 0x1b / 255, b: 0x1b / 255 }
 
@@ -39,7 +40,7 @@ export async function exportDocx(vm: ViewModel, notes: Note[]): Promise<Uint8Arr
   const children: Paragraph[] = []
 
   children.push(new Paragraph({
-    children: [new TextRun({ text: 'WEEKLY INDUSTRY NEWS EXECUTIVE BRIEFING', bold: true, size: 30, color: '1E2B47' })],
+    children: [new TextRun({ text: 'WEEKLY INDUSTRY NEWS EXECUTIVE BRIEFING', bold: true, size: 30, color: '295650' })],
   }))
   children.push(new Paragraph({
     children: [new TextRun({ text: `Week ${vm.week} · ${vm.label}`, size: 20, color: '64748B' })],

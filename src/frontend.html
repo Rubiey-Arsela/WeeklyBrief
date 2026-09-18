@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Maida Vale — Weekly Brief</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <style>
 /* ========================================================================
    MAIDA VALE — WEEKLY BRIEF
@@ -13,12 +15,15 @@
 
 /* ---------- Design Tokens ---------- */
 :root {
-  /* Palette — restrained, print-safe */
-  --navy-900: #0f1e3d;
-  --navy-800: #16264d;
-  --navy-700: #1e3260;
-  --navy-600: #2a4170;
-  --navy-500: #3a5388;
+  /* Palette — Maida Vale brand green, restrained, print-safe */
+  --navy-900: #102320;
+  --navy-800: #17302d;
+  --navy-700: #295650;
+  --navy-600: #316860;
+  --navy-500: #3f837a;
+  --navy-400: #4c9f94;
+  --navy-100: #dcefec;
+  --navy-50:  #eef7f6;
   --slate-700: #334155;
   --slate-600: #475569;
   --slate-500: #64748b;
@@ -103,10 +108,10 @@ body {
 
 /* ---------- Masthead ---------- */
 .masthead {
-  background: var(--navy-900);
-  color: var(--white);
-  padding: var(--space-lg) 0;
-  border-bottom: 3px solid var(--navy-600);
+  background: var(--white);
+  color: var(--navy-900);
+  padding: var(--space-md) 0;
+  border-bottom: 3px solid var(--navy-700);
 }
 .masthead-inner {
   max-width: var(--wide-width);
@@ -119,8 +124,18 @@ body {
 }
 .masthead-brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-md);
+}
+.masthead-brand .brand-logo {
+  height: 40px;
+  width: auto;
+  display: block;
+}
+.masthead-brand .brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
 }
 .masthead-brand h1 {
   font-family: var(--font-serif);
@@ -128,11 +143,12 @@ body {
   font-weight: 700;
   letter-spacing: -0.01em;
   white-space: nowrap;
+  color: var(--navy-700);
 }
 .masthead-brand .subtitle {
-  font-size: 0.8125rem;
-  color: var(--slate-400);
-  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  color: var(--slate-500);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .masthead-meta {
@@ -140,17 +156,17 @@ body {
   align-items: center;
   gap: var(--space-lg);
   font-size: 0.8125rem;
-  color: var(--slate-300);
+  color: var(--slate-600);
 }
 .masthead-meta .edition-label {
-  font-weight: 600;
-  color: var(--white);
+  font-weight: 700;
+  color: var(--navy-700);
 }
-.masthead-meta .sep { color: var(--slate-500); }
+.masthead-meta .sep { color: var(--slate-300); }
 .edition-select {
-  background: rgba(255,255,255,0.08);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,0.22);
+  background: var(--navy-50);
+  color: var(--navy-800);
+  border: 1px solid var(--navy-100);
   border-radius: 3px;
   padding: 2px 6px;
   font-family: inherit;
@@ -260,7 +276,7 @@ body {
   border-radius: 3px;
 }
 .tab-btn.active .tab-count {
-  background: var(--navy-100, #e0e7f1);
+  background: var(--navy-100);
   color: var(--navy-700);
 }
 
@@ -739,7 +755,7 @@ body {
 .pulse-table .delta-down { color: var(--dir-down); font-weight: 600; }
 .pulse-table .delta-flat { color: var(--slate-500); }
 .pulse-table .row-section-header td {
-  background: var(--navy-50, #f0f4fa);
+  background: var(--navy-50);
   font-weight: 700;
   color: var(--navy-700);
   font-size: 0.75rem;
@@ -850,7 +866,7 @@ body {
 }
 .feedback-entry-status.pending { background: var(--impact-low-bg); color: var(--impact-low-fg); }
 .feedback-entry-status.acknowledged { background: var(--impact-medium-bg); color: var(--impact-medium-fg); }
-.feedback-entry-status.addressed { background: var(--navy-50, #e0e7f1); color: var(--navy-700); }
+.feedback-entry-status.addressed { background: var(--navy-50); color: var(--navy-700); }
 .feedback-entry-text {
   font-size: 0.875rem;
   color: var(--slate-600);
@@ -949,7 +965,7 @@ body {
 .report-table-view { max-width: var(--content-width); margin: 0 auto; }
 .report-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
 .report-table thead th {
-  background: var(--navy-800, #1e2b47); color: var(--white);
+  background: var(--navy-800); color: var(--white);
   font-weight: 600; text-align: left; padding: 10px 14px;
   font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase;
   border-right: 1px solid var(--navy-600); white-space: nowrap;
@@ -969,7 +985,7 @@ body {
   font-size: 0.6875rem; color: var(--slate-400); font-style: italic;
 }
 .report-table .row-section-header td {
-  background: var(--navy-50, #f0f4fa); font-weight: 700; color: var(--navy-700);
+  background: var(--navy-50); font-weight: 700; color: var(--navy-700);
   font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase;
   padding: 8px 14px;
 }
@@ -1187,7 +1203,7 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
 .pdf-drop-zone:hover,
 .pdf-drop-zone.dragover {
   border-color: var(--navy-500);
-  background: var(--navy-50, #f0f4fa);
+  background: var(--navy-50);
 }
 .pdf-drop-zone .drop-icon {
   font-size: 2rem;
@@ -1375,8 +1391,11 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
 <header class="masthead">
   <div class="masthead-inner">
     <div class="masthead-brand">
-      <h1>Maida Vale</h1>
-      <span class="subtitle">Weekly Brief</span>
+      <img class="brand-logo" src="/static/logo-maida-vale.png" alt="Maida Vale">
+      <div class="brand-text">
+        <h1>Maida Vale</h1>
+        <span class="subtitle">Weekly Brief</span>
+      </div>
     </div>
     <div class="masthead-meta">
       <span class="edition-label" id="editionLabel">Week 38</span>

@@ -15,6 +15,7 @@ const app = new Hono<AppEnv>()
 
 app.use('/api/*', cors())
 app.use('/static/*', serveStatic({ root: './public' }))
+app.use('/favicon.ico', serveStatic({ path: './public/favicon.ico' }))
 
 const MAX_PDF = 20 * 1024 * 1024
 
