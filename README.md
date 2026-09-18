@@ -15,7 +15,8 @@
   - **Read Aloud**: narration via Gemini TTS (requires a `GEMINI_API_KEY` secret — see below); degrades to a clear "not configured" message otherwise
 
 ## URLs
-- **Production (Cloudflare Pages)**: https://maida-vale-weekly-brief.pages.dev
+- **Production (Cloudflare Pages)**: https://Maida-Vale-Weekly-Brief.pages.dev
+  - Domain names are case-insensitive, so this is identical to `maida-vale-weekly-brief.pages.dev` — either capitalisation works.
 - **Legacy (Genspark-hosted)**: https://4885e888-466b-40fb-921f-d42d91dc863a.vip.gensparksite.com
 - **GitHub**: https://github.com/Rubiey-Arsela/WeeklyBrief
 
