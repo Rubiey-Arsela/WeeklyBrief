@@ -10,7 +10,7 @@
   - **Trends** tab: cross-edition indicator series with sparklines
   - **Indicators** tab: the published weekly Pulse table (Brent, USD/MYR, CNY/MYR, 10Y MGS yield, diesel, KLCI, net foreign flow, palm oil stocks)
   - **Sticky notes**: click-to-drop notes anywhere on the report, shared across all readers (D1-backed), with replies and resolve/reopen
-  - **Admin**: add/edit/delete editions (JSON or PDF upload), stored in D1/R2
+  - **Admin**: add/edit/delete editions, **PDF-only upload** — week number and date are auto-derived from today's ISO week, no manual entry or JSON upload option
   - **Export**: PDF and Word documents, same reading order as the report tab, including open reader notes
   - **Read Aloud**: narration via Gemini TTS (requires a `GEMINI_API_KEY` secret — see below); degrades to a clear "not configured" message otherwise
 
@@ -26,8 +26,8 @@
 | `GET /` | the app |
 | `GET /api/editions` | edition list |
 | `GET /api/edition/<id\|latest>` | one edition, view-model shape (sections/indicators/trends/delta) |
-| `POST /api/edition` | create/replace an edition from JSON |
-| `POST /api/edition/upload-pdf` | create an edition from a PDF (multipart, 20 MB cap, stored in R2) |
+| `GET /api/edition/next` | preview `{id, week, date, label}` for the next PDF upload before it's created |
+| `POST /api/edition/upload-pdf` | create/replace an edition from a PDF (multipart, 20 MB cap, stored in R2); week/date auto-derived server-side unless explicitly sent |
 | `PUT /api/edition/<id>` | update an edition |
 | `DELETE /api/edition/<id>` | delete an edition (also removes its PDF from R2) |
 | `POST /api/ask` | `{query}` → `{answer, sources[], editions_referenced[]}` |
@@ -49,7 +49,7 @@
 2. Use the tab bar (Executive Summary / Report / Ask / Trends / Indicators) to navigate.
 3. In **Report**, filter by sector, switch reading mode (Wording/Table/Visual), or click **Add note** then click anywhere on the report to drop a sticky note — visible to every reader of that edition.
 4. Use **Ask** to type a question or click a suggested chip; answers cite the specific news items and indicator series behind them.
-5. Use **Export ▾** to download the edition as PDF or Word, or use **Add Report** / **Manage Reports** to create/edit/delete editions (JSON or PDF upload).
+5. Use **Export ▾** to download the edition as PDF or Word, or use **Add Report** to upload a new week's PDF — week number and date fill in automatically, no typing required. **Manage Reports** lets you edit an edition's date, replace its PDF, or delete it.
 6. **Read Aloud** narrates the report section by section — requires the `GEMINI_API_KEY` secret to be set (see Deployment below); without it, the button reports "narration not configured" instead of failing silently.
 
 ## Deployment
@@ -61,7 +61,7 @@
 - **Status**: ✅ Active
 - **Tech Stack**: Hono + TypeScript, Cloudflare D1, Cloudflare R2, `pdf-lib` (PDF export), `docx` (Word export)
 - **Enabling narration**: set a Gemini API key as a Worker secret on the Pages project, e.g. `npx wrangler pages secret put GEMINI_API_KEY --project-name maida-vale-weekly-brief`
-- **Last Updated**: 2026-09-18
+- **Last Updated**: 2026-09-18 (PDF-only upload with auto-derived week/date)
 
 ## Porting notes (from the original Flask prototype)
 The original app (`app.py` + `modules.py`, Flask + JSON files) is preserved for reference. Key differences in this port:
@@ -69,3 +69,10 @@ The original app (`app.py` + `modules.py`, Flask + JSON files) is preserved for 
 - TTS moved from shelling out to the `gsk` CLI (sandbox-only) to a direct Gemini TTS REST API call, gated on a `GEMINI_API_KEY` secret.
 - PDF/Word export moved from `reportlab`/`python-docx` (Python-only) to `pdf-lib`/`docx` (pure JS, runs on Workers) — same content and reading order, not pixel-identical to the original.
 - The frontend (`static/index.html`) is served **unchanged** — no UI code was modified during the port.
+
+## Admin workflow: PDF-only uploads
+Since the client only ever supplies weekly reports as PDF, JSON-based edition creation was removed entirely:
+- **Add Report**: drop/select a PDF only. The modal shows the auto-detected week and date (computed from today's ISO-8601 week) before you upload — nothing to type.
+- **Manage Reports → Edit**: change the date directly, and/or drop a replacement PDF for that same week. There is no JSON content field anymore.
+- The edition id is always `W<week>` — uploading again in the same ISO week updates that edition in place rather than creating a duplicate.
+- `isoWeek()` (in `src/viewmodel.ts`) implements the standard ISO-8601 rule (Thursday-of-the-week anchoring), verified against Python's `datetime.isocalendar()`.
