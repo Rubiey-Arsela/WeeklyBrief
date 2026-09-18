@@ -11,12 +11,14 @@
   "dependencies": {
     "docx": "^9.7.1",
     "hono": "^4.13.7",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "unpdf": "^1.8.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260918.1",
     "@hono/vite-build": "^1.11.1",
     "@hono/vite-dev-server": "^0.26.1",
+    "js-yaml": "^5.4.2",
     "typescript": "^5.9.3",
     "vite": "^8.1.4",
     "wrangler": "^4.110.0"
