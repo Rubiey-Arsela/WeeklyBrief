@@ -1473,25 +1473,26 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
 
   <!-- ============ EXECUTIVE SUMMARY ============ -->
   <section class="tab-panel active" id="tab-summary">
-    <div class="summary-grid">
-      <div class="summary-card">
-        <h3>This Week in Brief</h3>
-        <p class="summary-paragraph" id="summaryParagraph">
-          <!-- Filled by JS from edition data -->
-        </p>
-      </div>
-      <div class="summary-card">
-        <h3>Sector Heat</h3>
-        <div class="sector-heat" id="sectorHeat">
-          <!-- Filled by JS -->
-        </div>
-      </div>
+    <div class="summary-card" id="summaryCard" style="margin-bottom: var(--space-xl);">
+      <h3>This Week in Brief</h3>
+      <p class="summary-paragraph" id="summaryParagraph">
+        <!-- Filled by JS from edition data -->
+      </p>
     </div>
 
     <div class="summary-card" id="speedReadCard" style="margin-bottom: var(--space-xl);">
       <h3>Speed Read — 10 Things to Know</h3>
       <div class="speed-read-list" id="speedReadList">
         <!-- Filled by JS -->
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h3>Sector Heat</h3>
+        <div class="sector-heat" id="sectorHeat">
+          <!-- Filled by JS -->
+        </div>
       </div>
     </div>
 
