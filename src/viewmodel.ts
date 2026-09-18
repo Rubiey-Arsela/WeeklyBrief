@@ -31,13 +31,15 @@ export function weekOf(ed: Edition): number {
   }
 }
 
-function isoWeek(date: Date): number {
+// Standard ISO-8601 week number: move to the Thursday of the same week,
+// then count weeks since that Thursday's year started. Verified against
+// Python's datetime.isocalendar() for week-boundary and year-boundary dates.
+export function isoWeek(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNum = (d.getUTCDay() + 6) % 7
-  d.setUTCDate(d.getUTCDate() - dayNum + 3)
-  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4))
-  const diff = (d.getTime() - firstThursday.getTime()) / 86400000
-  return 1 + Math.round((diff - ((firstThursday.getUTCDay() + 6) % 7)) / 7)
+  const dayNum = d.getUTCDay() || 7 // ISO weekday: Mon=1..Sun=7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
 
 const STOP = new Set(('the a an of for and or to in on at is are was were be been what how ' +

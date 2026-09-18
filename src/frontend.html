@@ -1168,28 +1168,18 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
 .modal-btn.danger:hover { background: #7f1d1d; }
 
 /* ---------- PDF Upload ---------- */
-.upload-tabs {
-  display: flex;
-  gap: 0;
-  margin-bottom: var(--space-lg);
-  border-bottom: var(--border-strong);
-}
-.upload-tab {
-  padding: var(--space-sm) var(--space-md);
+.auto-week-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--slate-500);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-}
-.upload-tab.active {
+  font-weight: 700;
   color: var(--navy-700);
-  border-bottom-color: var(--navy-700);
+  background: var(--navy-50);
+  border: 1px solid var(--navy-100);
+  border-radius: 4px;
 }
-.upload-panel { display: none; }
-.upload-panel.active { display: block; }
 
 .pdf-drop-zone {
   border: 2px dashed var(--slate-300);
@@ -1608,19 +1598,20 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
 <script>
 /* ========================================================================
    APP LOGIC — vanilla, no build step
-   Expects /api/ endpoints from Flask backend:
+   Expects these /api/ endpoints (Hono backend):
    GET  /api/editions              → list of editions
    GET  /api/edition/<id>          → single edition with sections + items
-   POST /api/edition               → create new edition from JSON (admin)
-   POST /api/edition/upload-pdf    → create new edition from PDF upload (admin, multipart/form-data)
-   PUT  /api/edition/<id>          → update edition (admin)
+   GET  /api/edition/next          → { id, week, date, label } for the next upload
+   POST /api/edition/upload-pdf    → create/replace an edition from a PDF (admin, multipart/form-data)
+                                      week/date auto-derived server-side unless explicitly sent
+   PUT  /api/edition/<id>          → update an edition's date (admin)
    DEL  /api/edition/<id>          → delete edition (admin)
    POST /api/ask                   → { query } → { answer, sources[] }
    POST /api/feedback              → { type, section, text }
    GET  /api/feedback               → list of feedback entries
 
-   Edition JSON may include a `pdf` field: { name, url, size }
-   for PDF-linked editions.
+   Every edition is PDF-only: it carries a `pdf` field { name, url, size }
+   and no structured JSON content is authored through the admin UI.
    ======================================================================== */
 
 let currentEdition = null;
@@ -2407,37 +2398,17 @@ function openModal(mode) {
     title.textContent = 'Add New Report';
     body.innerHTML = `
       <div class="feedback-field">
-        <label>Week Number</label>
-        <input type="number" id="newWeek" placeholder="e.g., 39" min="1" max="53">
+        <label>Week / Date</label>
+        <div class="auto-week-pill" id="autoWeekPill">Detecting next week…</div>
       </div>
-      <div class="feedback-field">
-        <label>Date</label>
-        <input type="date" id="newDate">
+      <div class="pdf-drop-zone" id="pdfDropZone" onclick="document.getElementById('pdfFileInput').click()">
+        <div class="drop-icon">📄</div>
+        <div class="drop-text">Drop a PDF report here or click to browse</div>
+        <div class="drop-hint">PDF up to 20 MB — week and date are filled in automatically</div>
+        <input type="file" accept=".pdf" id="pdfFileInput" style="display:none;" onchange="handlePdfSelect(this)">
       </div>
-      <div class="upload-tabs">
-        <button class="upload-tab active" onclick="switchUploadTab('json')">Upload JSON</button>
-        <button class="upload-tab" onclick="switchUploadTab('pdf')">Upload PDF</button>
-      </div>
-      <div class="upload-panel active" id="uploadPanelJson">
-        <div class="feedback-field">
-          <label>Report Content (JSON)</label>
-          <textarea id="newContent" style="min-height:160px;font-family:var(--font-mono);font-size:0.8125rem;" placeholder='{"sections": [...], "indicators": [...], ...}'></textarea>
-        </div>
-        <div class="feedback-field">
-          <label>Or upload JSON file</label>
-          <input type="file" accept=".json" id="newFile" onchange="loadFileContent(this)">
-        </div>
-      </div>
-      <div class="upload-panel" id="uploadPanelPdf">
-        <div class="pdf-drop-zone" id="pdfDropZone" onclick="document.getElementById('pdfFileInput').click()">
-          <div class="drop-icon">📄</div>
-          <div class="drop-text">Drop a PDF report here or click to browse</div>
-          <div class="drop-hint">PDF up to 20 MB — the file will be stored and linked from the Report tab</div>
-          <input type="file" accept=".pdf" id="pdfFileInput" style="display:none;" onchange="handlePdfSelect(this)">
-        </div>
-        <div id="pdfFileInfo"></div>
-        <div class="pdf-upload-progress" id="pdfUploadProgress"><div class="bar" id="pdfUploadBar"></div></div>
-      </div>
+      <div id="pdfFileInfo"></div>
+      <div class="pdf-upload-progress" id="pdfUploadProgress"><div class="bar" id="pdfUploadBar"></div></div>
     `;
     footer.innerHTML = `
       <button class="modal-btn" onclick="closeModal()">Cancel</button>
@@ -2445,6 +2416,7 @@ function openModal(mode) {
     `;
     // Enable drag-and-drop on the PDF zone
     enablePdfDragDrop();
+    loadAutoWeekInfo();
   } else if (mode === 'manage') {
     title.textContent = 'Manage Reports';
     body.innerHTML = `<div class="admin-report-list" id="adminReportList">Loading…</div>`;
@@ -2456,21 +2428,28 @@ function openModal(mode) {
     body.innerHTML = `
       <div class="feedback-field">
         <label>Week Number</label>
-        <input type="number" id="editWeek" disabled>
+        <input type="text" id="editWeek" disabled>
       </div>
       <div class="feedback-field">
         <label>Date</label>
         <input type="date" id="editDate">
       </div>
       <div class="feedback-field">
-        <label>Report Content (JSON)</label>
-        <textarea id="editContent" style="min-height:200px;font-family:var(--font-mono);font-size:0.8125rem;"></textarea>
+        <label>Replace PDF (optional)</label>
+        <div class="pdf-drop-zone" id="editPdfDropZone" onclick="document.getElementById('editPdfFileInput').click()">
+          <div class="drop-icon">📄</div>
+          <div class="drop-text">Drop a new PDF here or click to browse</div>
+          <div class="drop-hint">Leave empty to keep the current PDF — only the date will change</div>
+          <input type="file" accept=".pdf" id="editPdfFileInput" style="display:none;" onchange="handleEditPdfSelect(this)">
+        </div>
+        <div id="editPdfFileInfo"></div>
       </div>
     `;
     footer.innerHTML = `
       <button class="modal-btn" onclick="closeModal()">Cancel</button>
       <button class="modal-btn primary" onclick="saveEdit('${editionId}')">Save Changes</button>
     `;
+    enableEditPdfDragDrop();
     loadEditForm(editionId);
   } else if (mode && mode.startsWith('delete-')) {
     const editionId = mode.replace('delete-', '');
@@ -2489,30 +2468,23 @@ function closeModal() {
   document.getElementById('modalOverlay').classList.remove('active');
 }
 
-function loadFileContent(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    document.getElementById('newContent').value = e.target.result;
-  };
-  reader.readAsText(file);
-}
-
-/* ---------- Upload Tab Switching ---------- */
-function switchUploadTab(tab) {
-  document.querySelectorAll('.upload-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.upload-panel').forEach(p => p.classList.remove('active'));
-  if (tab === 'json') {
-    document.querySelector('.upload-tab:nth-child(1)').classList.add('active');
-    document.getElementById('uploadPanelJson').classList.add('active');
-  } else {
-    document.querySelector('.upload-tab:nth-child(2)').classList.add('active');
-    document.getElementById('uploadPanelPdf').classList.add('active');
+/* ---------- Auto week/date (PDF-only admin flow) ---------- */
+// Week and date are derived server-side from today's ISO week — the admin
+// never types them. This just previews that value in the modal before upload.
+async function loadAutoWeekInfo() {
+  const pill = document.getElementById('autoWeekPill');
+  if (!pill) return;
+  try {
+    const info = await (await fetch('/api/edition/next')).json();
+    pill.textContent = `Week ${info.week} · ${formatDate(info.date)}`;
+    pill.dataset.week = info.week;
+    pill.dataset.date = info.date;
+  } catch (e) {
+    pill.textContent = 'Could not detect the current week — it will still be set automatically on upload.';
   }
 }
 
-/* ---------- PDF Upload ---------- */
+/* ---------- PDF Upload (Add Report) ---------- */
 let selectedPdfFile = null;
 
 function handlePdfSelect(input) {
@@ -2524,11 +2496,12 @@ function handlePdfSelect(input) {
     return;
   }
   selectedPdfFile = file;
-  renderPdfFileInfo(file);
+  renderPdfFileInfo(file, 'pdfFileInfo', 'clearPdfFile');
 }
 
-function renderPdfFileInfo(file) {
-  const el = document.getElementById('pdfFileInfo');
+function renderPdfFileInfo(file, targetId, clearFn) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
   if (!file) { el.innerHTML = ''; return; }
   const sizeStr = file.size > 1024 * 1024
     ? (file.size / 1024 / 1024).toFixed(1) + ' MB'
@@ -2540,7 +2513,7 @@ function renderPdfFileInfo(file) {
         <div class="pdf-name">${file.name}</div>
         <div class="pdf-size">${sizeStr}</div>
       </div>
-      <button class="pdf-remove" onclick="clearPdfFile()">✕ Remove</button>
+      <button class="pdf-remove" onclick="${clearFn}()">✕ Remove</button>
     </div>
   `;
 }
@@ -2572,62 +2545,32 @@ function enablePdfDragDrop() {
 }
 
 async function addReport() {
-  const week = document.getElementById('newWeek').value;
-  const date = document.getElementById('newDate').value;
-  if (!week || !date) { alert('Week number and date are required.'); return; }
+  if (!selectedPdfFile) { alert('Please select a PDF file to upload.'); return; }
+  const formData = new FormData();
+  formData.append('pdf', selectedPdfFile);
+  // Week/date are derived server-side; nothing else to send.
 
-  // Check which upload tab is active
-  const pdfActive = document.getElementById('uploadPanelPdf').classList.contains('active');
+  const progressEl = document.getElementById('pdfUploadProgress');
+  const barEl = document.getElementById('pdfUploadBar');
+  progressEl.classList.add('active');
+  barEl.style.width = '30%';
 
-  if (pdfActive) {
-    // PDF upload mode
-    if (!selectedPdfFile) { alert('Please select a PDF file to upload.'); return; }
-    const formData = new FormData();
-    formData.append('week', week);
-    formData.append('date', date);
-    formData.append('pdf', selectedPdfFile);
-
-    const progressEl = document.getElementById('pdfUploadProgress');
-    const barEl = document.getElementById('pdfUploadBar');
-    progressEl.classList.add('active');
-    barEl.style.width = '30%';
-
-    try {
-      const res = await fetch('/api/edition/upload-pdf', {
-        method: 'POST',
-        body: formData
-      });
-      if (!res.ok) throw new Error('Upload failed');
-      barEl.style.width = '100%';
-      setTimeout(() => {
-        closeModal();
-        selectedPdfFile = null;
-        loadEdition('latest');
-      }, 500);
-    } catch (e) {
-      progressEl.classList.remove('active');
-      barEl.style.width = '0%';
-      alert('Failed to upload PDF. Ensure the /api/edition/upload-pdf endpoint exists in app.py.');
-    }
-  } else {
-    // JSON upload mode
-    const content = document.getElementById('newContent').value;
-    try {
-      let payload = { week: parseInt(week), date: date };
-      if (content) {
-        const parsed = JSON.parse(content);
-        payload = { ...payload, ...parsed };
-      }
-      await fetch('/api/edition', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-      });
+  try {
+    const res = await fetch('/api/edition/upload-pdf', {
+      method: 'POST',
+      body: formData
+    });
+    if (!res.ok) throw new Error('Upload failed');
+    barEl.style.width = '100%';
+    setTimeout(() => {
       closeModal();
+      selectedPdfFile = null;
       loadEdition('latest');
-    } catch (e) {
-      alert('Failed to add report. Check JSON format and ensure the API is running.');
-    }
+    }, 500);
+  } catch (e) {
+    progressEl.classList.remove('active');
+    barEl.style.width = '0%';
+    alert('Failed to upload PDF. Please try again.');
   }
 }
 
@@ -2659,28 +2602,80 @@ async function loadEditForm(editionId) {
   try {
     const res = await fetch(`/api/edition/${editionId}`);
     const ed = await res.json();
-    document.getElementById('editWeek').value = ed.week;
+    document.getElementById('editWeek').value = `Week ${ed.week}`;
     document.getElementById('editDate').value = ed.date;
-    document.getElementById('editContent').value = JSON.stringify(ed, null, 2);
   } catch (e) {
     alert('Failed to load report for editing.');
   }
 }
 
+/* ---------- PDF Replace (Edit Report) ---------- */
+let selectedEditPdfFile = null;
+
+function handleEditPdfSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 20 * 1024 * 1024) {
+    alert('PDF must be under 20 MB.');
+    input.value = '';
+    return;
+  }
+  selectedEditPdfFile = file;
+  renderPdfFileInfo(file, 'editPdfFileInfo', 'clearEditPdfFile');
+}
+
+function clearEditPdfFile() {
+  selectedEditPdfFile = null;
+  document.getElementById('editPdfFileInput').value = '';
+  document.getElementById('editPdfFileInfo').innerHTML = '';
+}
+
+function enableEditPdfDragDrop() {
+  const zone = document.getElementById('editPdfDropZone');
+  if (!zone) return;
+  ['dragenter', 'dragover'].forEach(ev => {
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+  });
+  ['dragleave', 'drop'].forEach(ev => {
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('dragover'); });
+  });
+  zone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') {
+      document.getElementById('editPdfFileInput').files = e.dataTransfer.files;
+      handleEditPdfSelect({ files: e.dataTransfer.files });
+    } else {
+      alert('Please drop a PDF file.');
+    }
+  });
+}
+
 async function saveEdit(editionId) {
   const date = document.getElementById('editDate').value;
-  const content = document.getElementById('editContent').value;
   try {
-    const payload = { date, ...JSON.parse(content) };
-    await fetch(`/api/edition/${editionId}`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    });
+    if (selectedEditPdfFile) {
+      // Replacing the PDF: same upload endpoint, but week is forced to this
+      // edition's existing week so it updates in place instead of creating
+      // a new one, and the chosen date is honoured explicitly.
+      const week = editionId.replace(/^W/, '');
+      const formData = new FormData();
+      formData.append('week', week);
+      formData.append('date', date);
+      formData.append('pdf', selectedEditPdfFile);
+      await fetch('/api/edition/upload-pdf', { method: 'POST', body: formData });
+    } else {
+      // Date-only correction, PDF untouched.
+      await fetch(`/api/edition/${editionId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ date })
+      });
+    }
+    selectedEditPdfFile = null;
     closeModal();
     loadEdition('latest');
   } catch (e) {
-    alert('Failed to save changes. Check JSON format.');
+    alert('Failed to save changes.');
   }
 }
 

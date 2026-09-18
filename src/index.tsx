@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import type { AppEnv, Corpus, Edition, Note, PdfMeta } from './types'
-import { viewModel, weekOf, tokens } from './viewmodel'
+import { viewModel, weekOf, tokens, isoWeek } from './viewmodel'
 import { ask } from './ask'
 import { VOICES, synthesise } from './tts'
 import { exportDocx, exportPdf } from './export'
@@ -91,6 +91,38 @@ function randId(prefix: string, len = 10): string {
   return prefix + hex
 }
 
+// Week/date auto-derivation for PDF-only uploads. The published week number
+// always equals the ISO week of the edition's date (see weekOf/isoWeek in
+// viewmodel.ts — "31 Aug 2026 to 4 Sept 2026" carries date 2026-09-04, ISO
+// week 36). Anchoring on today's ISO week keeps a fresh PDF upload in sync
+// with that same convention without asking the admin to enter it by hand.
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
+
+function fmtDay(d: Date): string {
+  return `${d.getUTCDate()} ${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+}
+
+function nextEditionInfo(editions: Edition[]): { id: string; week: number; date: string; label: string } {
+  const today = new Date()
+  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
+  const week = isoWeek(todayUtc)
+
+  // Monday..Friday of the current ISO week, for the published label.
+  const dayNum = (todayUtc.getUTCDay() + 6) % 7 // 0 = Monday
+  const monday = new Date(todayUtc); monday.setUTCDate(todayUtc.getUTCDate() - dayNum)
+  const friday = new Date(monday); friday.setUTCDate(monday.getUTCDate() + 4)
+
+  const date = todayUtc.toISOString().slice(0, 10)
+  const label = `${fmtDay(monday)} to ${fmtDay(friday)}`
+  // Id is always this week's ISO number. If an edition for this week
+  // already exists (e.g. re-uploading a corrected PDF the same week),
+  // upload-pdf naturally updates it in place rather than creating a
+  // duplicate — same behaviour as before, just auto-derived instead of
+  // typed in.
+  const id = `W${week}`
+  return { id, week, date, label }
+}
+
 // ------------------------------------------------------------------ frontend
 app.get('/', (c) => c.html(frontendHtml as string))
 
@@ -109,6 +141,15 @@ app.get('/api/editions', async (c) => {
   return c.json(out)
 })
 
+// Preview what the next edition's week/date will be, so the "Add Report"
+// modal can show it before upload without creating anything yet. Must be
+// registered before the /:id route below, or Hono matches "next" as an id.
+app.get('/api/edition/next', async (c) => {
+  const editions = await loadEditions(c.env.DB)
+  const next = nextEditionInfo(editions)
+  return c.json(next)
+})
+
 app.get('/api/edition/:id', async (c) => {
   const db = c.env.DB
   const editions = await loadEditions(db)
@@ -120,84 +161,44 @@ app.get('/api/edition/:id', async (c) => {
   return c.json(viewModel(corpus, editions, ed))
 })
 
-app.post('/api/edition', async (c) => {
-  const body = await c.req.json().catch(() => ({}))
-  const week = body.week
-  const date = body.date
-  if (!week || !date) return c.json({ ok: false, error: 'week and date are required' }, 400)
-
-  const id = body.id || `W${parseInt(week, 10)}`
-  const ed: Edition = {
-    id,
-    label: body.label || `Week ${week}`,
-    date,
-    status: body.status || 'draft',
-    exec_summary: body.exec_summary || '',
-    speed_read: body.speed_read || [],
-    structural: body.structural || '',
-    pulse: body.pulse || [],
-    items: body.items || [],
-    watchlist: body.watchlist || [],
-    beyond: body.beyond || '',
-    pdf: body.pdf || null,
-  }
-
-  const db = c.env.DB
-  await db.prepare(upsertEditionSql()).bind(
-    ed.id, ed.label, ed.date, ed.status, ed.exec_summary,
-    JSON.stringify(ed.speed_read), ed.structural, JSON.stringify(ed.pulse),
-    JSON.stringify(ed.items), JSON.stringify(ed.watchlist), ed.beyond,
-    ed.pdf ? JSON.stringify(ed.pdf) : null,
-  ).run()
-
-  // Track any new section names on the corpus so the published order grows.
-  const corpus = await loadCorpus(db)
-  const known = new Set(corpus.sections)
-  let changed = false
-  for (const it of ed.items) {
-    if (it.section && !known.has(it.section)) { known.add(it.section); corpus.sections.push(it.section); changed = true }
-  }
-  if (changed) {
-    await db.prepare('UPDATE corpus SET sections = ? WHERE id = 1').bind(JSON.stringify(corpus.sections)).run()
-  }
-
-  const editions = await loadEditions(db)
-  return c.json(viewModel(await loadCorpus(db), editions, ed))
-})
-
 app.post('/api/edition/upload-pdf', async (c) => {
   const form = await c.req.formData()
-  const week = form.get('week') as string | null
-  const date = form.get('date') as string | null
   const file = form.get('pdf') as File | null
+  const db = c.env.DB
+  const editions = await loadEditions(db)
 
-  if (!week || !date) return c.json({ ok: false, error: 'week and date are required' }, 400)
+  // Week and date are derived automatically from the existing editions
+  // (next sequential week, dated today) — the admin only supplies the PDF.
+  // An explicit week/date in the form (e.g. a manual correction) still wins.
+  const auto = nextEditionInfo(editions)
+  const weekNum = form.get('week') ? parseInt(form.get('week') as string, 10) : auto.week
+  const date = (form.get('date') as string | null) || auto.date
+
   if (!file || !file.name) return c.json({ ok: false, error: 'no pdf file in request' }, 400)
   if (!file.name.toLowerCase().endsWith('.pdf')) return c.json({ ok: false, error: 'file must be a .pdf' }, 400)
   if (file.size > MAX_PDF) return c.json({ ok: false, error: 'pdf exceeds 20 MB' }, 413)
 
   const safe = file.name.replace(/[^A-Za-z0-9._-]/g, '_')
-  const eid = `W${parseInt(week, 10)}`
+  const eid = `W${weekNum}`
   const stored = `pdf/${eid}-${date}-${safe}`
   const buf = await file.arrayBuffer()
   await c.env.R2.put(stored, buf, { httpMetadata: { contentType: 'application/pdf' } })
 
   const pdf: PdfMeta = { name: safe, url: `/pdf/${eid}-${date}-${safe}`, size: file.size, r2_key: stored }
 
-  const db = c.env.DB
   const existing = await db.prepare('SELECT id FROM editions WHERE id = ?').bind(eid).first()
   if (!existing) {
     await db.prepare(upsertEditionSql()).bind(
-      eid, `Week ${week}`, date, 'pdf', '', '[]', '', '[]', '[]', '[]', '', JSON.stringify(pdf),
+      eid, `Week ${weekNum}`, date, 'pdf', '', '[]', '', '[]', '[]', '[]', '', JSON.stringify(pdf),
     ).run()
   } else {
     await db.prepare('UPDATE editions SET date = ?, pdf = ?, updated_at = datetime(\'now\') WHERE id = ?')
       .bind(date, JSON.stringify(pdf), eid).run()
   }
 
-  const editions = await loadEditions(db)
-  const ed = editions.find((e) => e.id === eid)!
-  return c.json(viewModel(await loadCorpus(db), editions, ed))
+  const freshEditions = await loadEditions(db)
+  const ed = freshEditions.find((e) => e.id === eid)!
+  return c.json(viewModel(await loadCorpus(db), freshEditions, ed))
 })
 
 app.put('/api/edition/:id', async (c) => {
