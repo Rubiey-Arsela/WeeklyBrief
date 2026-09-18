@@ -42,7 +42,8 @@ const resp = await fetch(config.openai.base_url + '/chat/completions', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.openai.api_key },
   body: JSON.stringify({
-    model: 'gpt-5-mini',
+    model: 'gpt-5-nano',
+    reasoning_effort: 'minimal',
     messages: [
       { role: 'system', content: SYSTEM },
       { role: 'user', content: text },
@@ -50,7 +51,11 @@ const resp = await fetch(config.openai.base_url + '/chat/completions', {
     response_format: { type: 'json_object' },
   }),
 })
-const data = await resp.json()
+console.log('status:', resp.status)
+const raw = await resp.text()
+fs.writeFileSync('/tmp/raw_resp.txt', raw)
+console.log('raw length:', raw.length, 'first 500:', raw.slice(0, 500))
+const data = JSON.parse(raw)
 if (!resp.ok) { console.error(JSON.stringify(data)); process.exit(1) }
 const content = data.choices[0].message.content
 fs.writeFileSync('/tmp/extracted.json', content)
