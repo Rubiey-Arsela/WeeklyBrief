@@ -1,0 +1,2722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maida Vale — Weekly Brief</title>
+<style>
+/* ========================================================================
+   MAIDA VALE — WEEKLY BRIEF
+   Corporate Design System v2.0
+   Designer pass: boardroom-credible, print-safe, financial-table discipline
+   ======================================================================== */
+
+/* ---------- Design Tokens ---------- */
+:root {
+  /* Palette — restrained, print-safe */
+  --navy-900: #0f1e3d;
+  --navy-800: #16264d;
+  --navy-700: #1e3260;
+  --navy-600: #2a4170;
+  --navy-500: #3a5388;
+  --slate-700: #334155;
+  --slate-600: #475569;
+  --slate-500: #64748b;
+  --slate-400: #94a3b8;
+  --slate-300: #cbd5e1;
+  --slate-200: #e2e8f0;
+  --slate-100: #f1f5f9;
+  --slate-50:  #f8fafc;
+  --white:     #ffffff;
+  --ink:       #1a1a2e;
+
+  /* Impact labels — consistent system */
+  --impact-critical-bg: #fef2f2;
+  --impact-critical-fg: #991b1b;
+  --impact-critical-bd: #fecaca;
+  --impact-high-bg: #fffbeb;
+  --impact-high-fg: #92400e;
+  --impact-high-bd: #fde68a;
+  --impact-medium-bg: #f0fdf4;
+  --impact-medium-fg: #166534;
+  --impact-medium-bd: #bbf7d0;
+  --impact-low-bg: #f8fafc;
+  --impact-low-fg: #475569;
+  --impact-low-bd: #e2e8f0;
+
+  /* Directional indicators */
+  --dir-up: #166534;
+  --dir-down: #991b1b;
+  --dir-flat: #475569;
+
+  /* Typography */
+  --font-serif: 'Trebuchet MS', 'Lucida Grande', 'Verdana', sans-serif;
+  --font-sans: 'Trebuchet MS', 'Lucida Grande', 'Verdana', sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+
+  /* Spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Reading width — optimized for Report tab */
+  --reading-width: 680px;
+  --content-width: 960px;
+  --wide-width: 1200px;
+
+  /* Borders */
+  --border: 1px solid var(--slate-200);
+  --border-strong: 1px solid var(--slate-300);
+  --border-navy: 2px solid var(--navy-700);
+}
+
+/* ---------- Reset ---------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background: var(--slate-50);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Print ---------- */
+@media print {
+  body { background: white; font-size: 11pt; }
+  .tab-nav, .admin-bar, .no-print { display: none !important; }
+  .tab-panel { display: block !important; page-break-after: always; }
+  .tab-panel:last-child { page-break-after: auto; }
+  a { color: var(--navy-700); text-decoration: none; }
+  .impact-badge { border: 1px solid !important; background: white !important; }
+  .pulse-table tr:nth-child(even) { background: #f5f5f5 !important; }
+}
+
+/* ========================================================================
+   LAYOUT
+   ======================================================================== */
+
+/* ---------- Masthead ---------- */
+.masthead {
+  background: var(--navy-900);
+  color: var(--white);
+  padding: var(--space-lg) 0;
+  border-bottom: 3px solid var(--navy-600);
+}
+.masthead-inner {
+  max-width: var(--wide-width);
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+.masthead-brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+}
+.masthead-brand h1 {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.masthead-brand .subtitle {
+  font-size: 0.8125rem;
+  color: var(--slate-400);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.masthead-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  font-size: 0.8125rem;
+  color: var(--slate-300);
+}
+.masthead-meta .edition-label {
+  font-weight: 600;
+  color: var(--white);
+}
+.masthead-meta .sep { color: var(--slate-500); }
+.edition-select {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.edition-select option { color: var(--slate-800); background: #fff; }
+
+/* ---------- Admin Bar ---------- */
+.admin-bar {
+  background: var(--navy-800);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--navy-600);
+}
+.admin-bar-inner {
+  max-width: var(--wide-width);
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+.admin-bar-label {
+  font-size: 0.75rem;
+  color: var(--slate-400);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid var(--navy-500);
+  background: transparent;
+  color: var(--slate-200);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.admin-btn:hover {
+  background: var(--navy-700);
+  border-color: var(--slate-400);
+  color: var(--white);
+}
+.admin-btn.primary {
+  background: var(--navy-600);
+  border-color: var(--navy-500);
+  color: var(--white);
+}
+.admin-btn.primary:hover {
+  background: var(--navy-500);
+}
+.admin-btn .icon { font-size: 0.875rem; }
+
+/* ---------- Tab Navigation ---------- */
+.tab-nav {
+  background: var(--white);
+  border-bottom: var(--border-strong);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.tab-nav-inner {
+  max-width: var(--wide-width);
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+}
+.tab-btn {
+  padding: var(--space-md) var(--space-lg);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--slate-500);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tab-btn:hover { color: var(--navy-700); }
+.tab-btn.active {
+  color: var(--navy-700);
+  border-bottom-color: var(--navy-700);
+}
+.tab-btn .tab-count {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  background: var(--slate-200);
+  color: var(--slate-600);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.tab-btn.active .tab-count {
+  background: var(--navy-100, #e0e7f1);
+  color: var(--navy-700);
+}
+
+/* ---------- Main Content ---------- */
+.main {
+  max-width: var(--wide-width);
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-lg);
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ========================================================================
+   EXECUTIVE SUMMARY TAB (default landing — per Engineer's recommendation)
+   ======================================================================== */
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+.summary-card {
+  background: var(--white);
+  border: var(--border);
+  border-radius: 6px;
+  padding: var(--space-lg);
+}
+.summary-card h3 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slate-500);
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: var(--border);
+}
+.summary-paragraph {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  color: var(--slate-700);
+  max-width: 720px;
+}
+.summary-paragraph .highlight {
+  font-weight: 700;
+  color: var(--navy-700);
+}
+
+/* Sector heat */
+.sector-heat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.sector-heat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: var(--border);
+}
+.sector-heat-row:last-child { border-bottom: none; }
+.sector-heat-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  min-width: 80px;
+}
+.sector-dir {
+  font-size: 1rem;
+  font-weight: 700;
+  width: 20px;
+  text-align: center;
+}
+.sector-dir.up { color: var(--dir-up); }
+.sector-dir.down { color: var(--dir-down); }
+.sector-dir.flat { color: var(--dir-flat); }
+.sector-heat-note {
+  font-size: 0.8125rem;
+  color: var(--slate-500);
+  flex: 1;
+}
+
+/* Watch list delta */
+.watch-delta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.watch-delta-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: 4px;
+  font-size: 0.8125rem;
+}
+.watch-delta-item.new { background: var(--impact-medium-bg); }
+.watch-delta-item.escalated { background: var(--impact-high-bg); }
+.watch-delta-item.resolved { background: var(--slate-100); text-decoration: line-through; color: var(--slate-400); }
+.watch-delta-tag {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* Carry-forward */
+.carry-forward {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.carry-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-left: 3px solid var(--impact-high-fg);
+  background: var(--impact-high-bg);
+  border-radius: 0 4px 4px 0;
+  font-size: 0.8125rem;
+}
+.carry-item .carry-since {
+  font-size: 0.6875rem;
+  color: var(--slate-500);
+  white-space: nowrap;
+}
+
+/* ========================================================================
+   REPORT TAB — the tab that matters
+   ======================================================================== */
+.report-header {
+  max-width: var(--reading-width);
+  margin: 0 auto var(--space-2xl);
+  text-align: center;
+}
+.report-header h2 {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--navy-900);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-sm);
+}
+.report-header .report-meta {
+  font-size: 0.8125rem;
+  color: var(--slate-500);
+  letter-spacing: 0.03em;
+}
+.report-header .report-meta .sep { margin: 0 8px; color: var(--slate-300); }
+
+.report-body {
+  max-width: var(--reading-width);
+  margin: 0 auto;
+}
+
+.report-section {
+  margin-bottom: var(--space-2xl);
+}
+.report-section-title {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--navy-800);
+  padding-bottom: var(--space-sm);
+  border-bottom: 2px solid var(--navy-700);
+  margin-bottom: var(--space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.report-section-title .section-count {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--slate-400);
+}
+
+.report-item {
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-lg);
+  border-bottom: var(--border);
+}
+.report-item:last-child { border-bottom: none; }
+.report-item-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+.report-item-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--slate-700);
+  flex: 1;
+}
+.report-item-body {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--slate-700);
+}
+.report-item-source {
+  font-size: 0.75rem;
+  color: var(--slate-400);
+  margin-top: var(--space-sm);
+  font-style: italic;
+}
+
+/* Read-aloud */
+.read-aloud-bar {
+  max-width: var(--reading-width);
+  margin: 0 auto var(--space-xl);
+  display: flex;
+  align-items: center;
+  /* Six controls live here now — wrap rather than overflow on narrow screens. */
+  flex-wrap: wrap;
+  row-gap: var(--space-sm);
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--slate-100);
+  border-radius: 6px;
+}
+.read-aloud-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: var(--navy-700);
+  color: var(--white);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.read-aloud-btn:hover { background: var(--navy-600); }
+.read-aloud-btn.playing { background: var(--dir-down); }
+.read-aloud-status {
+  font-size: 0.75rem;
+  color: var(--slate-500);
+}
+
+/* ========================================================================
+   ASK TAB
+   ======================================================================== */
+.ask-container {
+  max-width: var(--content-width);
+  margin: 0 auto;
+}
+.ask-suggested {
+  margin-bottom: var(--space-xl);
+}
+.ask-suggested h3 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slate-500);
+  margin-bottom: var(--space-md);
+}
+.ask-suggested-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.ask-chip {
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  background: var(--white);
+  border: var(--border-strong);
+  border-radius: 20px;
+  cursor: pointer;
+  color: var(--slate-600);
+  transition: all 0.15s;
+}
+.ask-chip:hover {
+  border-color: var(--navy-500);
+  color: var(--navy-700);
+  background: var(--slate-50);
+}
+.ask-input-row {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xl);
+}
+.ask-input {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 0.9375rem;
+  border: var(--border-strong);
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  color: var(--slate-700);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.ask-input:focus { border-color: var(--navy-500); box-shadow: 0 0 0 3px rgba(58,83,136,0.1); }
+.ask-submit {
+  padding: 12px 24px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  background: var(--navy-700);
+  color: var(--white);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ask-submit:hover { background: var(--navy-600); }
+
+.ask-answer {
+  background: var(--white);
+  border: var(--border);
+  border-radius: 6px;
+  padding: var(--space-lg);
+}
+.ask-answer-empty {
+  text-align: center;
+  padding: var(--space-2xl);
+  color: var(--slate-400);
+  font-size: 0.9375rem;
+}
+.ask-answer-text {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--slate-700);
+  margin-bottom: var(--space-lg);
+}
+.ask-answer-sources {
+  border-top: var(--border);
+  padding-top: var(--space-md);
+}
+.ask-answer-sources h4 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slate-500);
+  margin-bottom: var(--space-sm);
+}
+.ask-source-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: var(--border);
+  font-size: 0.8125rem;
+}
+.ask-source-row:last-child { border-bottom: none; }
+.ask-source-ref {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  background: var(--slate-100);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--slate-600);
+  white-space: nowrap;
+}
+.ask-source-text { color: var(--slate-600); flex: 1; }
+
+/* ========================================================================
+   TRENDS TAB
+   ======================================================================== */
+.trends-container {
+  max-width: var(--content-width);
+  margin: 0 auto;
+}
+.trends-item {
+  background: var(--white);
+  border: var(--border);
+  border-radius: 6px;
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+.trends-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+.trends-item-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--slate-700);
+}
+.trends-item-value {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.trends-item-value.up { color: var(--dir-up); }
+.trends-item-value.down { color: var(--dir-down); }
+.trends-chart {
+  width: 100%;
+  height: 120px;
+  position: relative;
+  margin: var(--space-md) 0;
+}
+.trends-baseline {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--slate-500);
+  padding-top: var(--space-sm);
+  border-top: var(--border);
+}
+.trends-baseline .label { font-weight: 600; }
+.trends-context {
+  font-size: 0.8125rem;
+  color: var(--slate-600);
+  padding: var(--space-sm);
+  background: var(--slate-50);
+  border-radius: 4px;
+  margin-top: var(--space-sm);
+}
+.trends-context a {
+  color: var(--navy-600);
+  text-decoration: none;
+  font-weight: 600;
+}
+.trends-context a:hover { text-decoration: underline; }
+
+/* ========================================================================
+   INDICATORS TAB — Pulse table as financial table
+   ======================================================================== */
+.indicators-container {
+  max-width: var(--wide-width);
+  margin: 0 auto;
+}
+.pulse-table-wrapper {
+  overflow-x: auto;
+  border: var(--border-strong);
+  border-radius: 6px;
+  background: var(--white);
+}
+.pulse-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.pulse-table thead th {
+  background: var(--navy-800);
+  color: var(--white);
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-right: 1px solid var(--navy-600);
+  white-space: nowrap;
+}
+.pulse-table thead th:last-child { border-right: none; }
+.pulse-table thead th.num { text-align: right; }
+.pulse-table tbody td {
+  padding: 9px 14px;
+  border-bottom: var(--border);
+  border-right: var(--border);
+  color: var(--slate-700);
+}
+.pulse-table tbody td:last-child { border-right: none; }
+.pulse-table tbody td.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.pulse-table tbody tr:nth-child(even) { background: var(--slate-50); }
+.pulse-table tbody tr:hover { background: var(--slate-100); }
+.pulse-table .delta-up { color: var(--dir-up); font-weight: 600; }
+.pulse-table .delta-down { color: var(--dir-down); font-weight: 600; }
+.pulse-table .delta-flat { color: var(--slate-500); }
+.pulse-table .row-section-header td {
+  background: var(--navy-50, #f0f4fa);
+  font-weight: 700;
+  color: var(--navy-700);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+}
+.pulse-table-footer {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.75rem;
+  color: var(--slate-500);
+  background: var(--slate-50);
+  border-top: var(--border);
+}
+
+/* ========================================================================
+   FEEDBACK TAB
+   ======================================================================== */
+.feedback-container {
+  max-width: var(--content-width);
+  margin: 0 auto;
+}
+.feedback-form {
+  background: var(--white);
+  border: var(--border);
+  border-radius: 6px;
+  padding: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+.feedback-form h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--slate-700);
+  margin-bottom: var(--space-md);
+}
+.feedback-field {
+  margin-bottom: var(--space-md);
+}
+.feedback-field label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--slate-600);
+  margin-bottom: var(--space-xs);
+}
+.feedback-field select,
+.feedback-field input,
+.feedback-field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  border: var(--border-strong);
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  color: var(--slate-700);
+  outline: none;
+}
+.feedback-field select:focus,
+.feedback-field input:focus,
+.feedback-field textarea:focus {
+  border-color: var(--navy-500);
+  box-shadow: 0 0 0 3px rgba(58,83,136,0.1);
+}
+.feedback-field textarea { min-height: 100px; resize: vertical; }
+.feedback-submit {
+  padding: 10px 24px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: var(--navy-700);
+  color: var(--white);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.feedback-submit:hover { background: var(--navy-600); }
+
+.feedback-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.feedback-entry {
+  padding: var(--space-md);
+  background: var(--white);
+  border: var(--border);
+  border-radius: 6px;
+  border-left: 3px solid var(--slate-300);
+}
+.feedback-entry.acknowledged { border-left-color: var(--impact-medium-fg); }
+.feedback-entry.addressed { border-left-color: var(--navy-600); }
+.feedback-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+.feedback-entry-meta {
+  font-size: 0.75rem;
+  color: var(--slate-500);
+}
+.feedback-entry-status {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+.feedback-entry-status.pending { background: var(--impact-low-bg); color: var(--impact-low-fg); }
+.feedback-entry-status.acknowledged { background: var(--impact-medium-bg); color: var(--impact-medium-fg); }
+.feedback-entry-status.addressed { background: var(--navy-50, #e0e7f1); color: var(--navy-700); }
+.feedback-entry-text {
+  font-size: 0.875rem;
+  color: var(--slate-600);
+}
+
+/* ---------- Sector Filter Bar ---------- */
+.report-filter-bar {
+  max-width: var(--reading-width);
+  margin: 0 auto var(--space-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slate-500);
+  margin-right: var(--space-xs);
+  white-space: nowrap;
+}
+.filter-chip {
+  padding: 5px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: var(--white);
+  border: 1px solid var(--slate-300);
+  border-radius: 16px;
+  cursor: pointer;
+  color: var(--slate-600);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.filter-chip:hover {
+  border-color: var(--navy-500);
+  color: var(--navy-700);
+}
+.filter-chip.active {
+  background: var(--navy-700);
+  color: var(--white);
+  border-color: var(--navy-700);
+}
+.filter-chip .filter-count {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  margin-left: 4px;
+  opacity: 0.7;
+}
+
+/* ---------- Read-aloud controls, view switch, export ---------- */
+.ra-select {
+  font-family: inherit; font-size: 0.75rem; padding: 4px 8px;
+  border: 1px solid var(--slate-300); border-radius: 4px;
+  background: var(--white); color: var(--slate-700); cursor: pointer;
+}
+.ra-speed {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--slate-500); white-space: nowrap;
+}
+.ra-speed input[type=range] { width: 88px; cursor: pointer; }
+#speedLabel { font-variant-numeric: tabular-nums; color: var(--slate-700); min-width: 34px; }
+.ra-spacer { flex: 1; }
+.view-switch { display: inline-flex; border: 1px solid var(--slate-300); border-radius: 4px; overflow: hidden; }
+.view-btn-sw {
+  padding: 5px 11px; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+  background: var(--white); color: var(--slate-600); border: none;
+  border-right: 1px solid var(--slate-300);
+}
+.view-btn-sw:last-child { border-right: none; }
+.view-btn-sw.active { background: var(--navy-700); color: var(--white); }
+.ra-note-btn, .ra-export-btn {
+  padding: 5px 11px; font-size: 0.75rem; font-weight: 600; cursor: pointer;
+  background: var(--white); color: var(--slate-700);
+  border: 1px solid var(--slate-300); border-radius: 4px;
+}
+.ra-note-btn.active { background: #fde68a; border-color: #d9a441; color: #7a4f00; }
+.export-menu { position: relative; display: inline-block; }
+.export-dropdown {
+  display: none; position: absolute; right: 0; top: calc(100% + 4px);
+  background: var(--white); border: 1px solid var(--slate-300);
+  border-radius: 4px; box-shadow: 0 6px 20px rgba(15,23,42,0.14);
+  min-width: 190px; z-index: 60; overflow: hidden;
+}
+.export-dropdown.open { display: block; }
+.export-dropdown a {
+  display: block; padding: 9px 13px; font-size: 0.8125rem;
+  color: var(--slate-700); text-decoration: none;
+}
+.export-dropdown a:hover { background: var(--slate-100, #f1f5f9); color: var(--navy-700); }
+
+/* ---------- Table + visual reading modes ---------- */
+/* Table styling follows the Pulse table: navy header, zebra rows, sticky head. */
+.report-table-view { max-width: var(--content-width); margin: 0 auto; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.report-table thead th {
+  background: var(--navy-800, #1e2b47); color: var(--white);
+  font-weight: 600; text-align: left; padding: 10px 14px;
+  font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase;
+  border-right: 1px solid var(--navy-600); white-space: nowrap;
+  position: sticky; top: 0; z-index: 2;
+}
+.report-table thead th:last-child { border-right: none; }
+.report-table tbody td {
+  padding: 10px 14px; border-bottom: var(--border); border-right: var(--border);
+  color: var(--slate-700); vertical-align: top;
+}
+.report-table tbody td:last-child { border-right: none; }
+.report-table tbody tr:nth-child(even) { background: var(--slate-50, #f8fafc); }
+.report-table tbody tr:hover { background: var(--slate-100, #f1f5f9); }
+.report-table .col-title { font-weight: 600; min-width: 180px; color: var(--navy-700); }
+.report-table .col-body { font-family: var(--font-serif); line-height: 1.6; max-width: 400px; }
+.report-table .col-source {
+  font-size: 0.6875rem; color: var(--slate-400); font-style: italic;
+}
+.report-table .row-section-header td {
+  background: var(--navy-50, #f0f4fa); font-weight: 700; color: var(--navy-700);
+  font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 8px 14px;
+}
+
+.visual-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: var(--space-md); }
+.visual-card {
+  border: 1px solid var(--slate-300); border-radius: 6px; overflow: hidden;
+  background: var(--white); display: flex; flex-direction: column;
+}
+.visual-card .vc-bar { height: 4px; }
+.vc-critical { background: #991b1b; } .vc-high { background: #d97706; }
+.vc-medium  { background: #15803d; } .vc-low  { background: #94a3b8; }
+.visual-card .vc-body { padding: var(--space-md); flex: 1; }
+.visual-card .vc-sec {
+  font-size: 0.625rem; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--slate-500); margin-bottom: 6px;
+}
+.visual-card .vc-title { font-weight: 700; color: var(--navy-700); font-size: 0.9rem; line-height: 1.35; margin-bottom: 8px; }
+.visual-card .vc-text { font-size: 0.8125rem; color: var(--slate-600); line-height: 1.55; }
+.visual-card .vc-foot {
+  padding: 8px var(--space-md); border-top: 1px solid var(--slate-200, #e2e8f0);
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+}
+.vc-figure {
+  font-family: var(--font-mono, monospace); font-size: 1.35rem; font-weight: 700;
+  color: var(--navy-700); margin: 6px 0 2px;
+}
+
+/* ---------- Sticky notes ---------- */
+.report-body { position: relative; }
+body.note-mode .report-section,
+body.note-mode .report-item,
+body.note-mode .visual-card { cursor: crosshair; }
+body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; }
+.note-bubble {
+  position: absolute; width: 208px; z-index: 40;
+  background: #fef9c3; border: 1px solid #d9a441; border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(15,23,42,0.16); font-size: 0.75rem;
+}
+.note-bubble.pink  { background: #fce7f3; border-color: #db8cb5; }
+.note-bubble.blue  { background: #dbeafe; border-color: #7aa7dd; }
+.note-bubble.green { background: #dcfce7; border-color: #74bd91; }
+.note-bubble.resolved { opacity: 0.5; }
+.note-head {
+  display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+  border-bottom: 1px solid rgba(0,0,0,0.09); cursor: move;
+  font-size: 0.6875rem; font-weight: 700; color: #6b4f14;
+}
+.note-head .nh-author { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-head button { border: none; background: none; cursor: pointer; font-size: 0.75rem; color: #6b4f14; padding: 0 2px; }
+.note-body { padding: 7px 8px; color: #44403c; line-height: 1.45; white-space: pre-wrap; word-wrap: break-word; }
+.note-body[contenteditable="true"] { background: rgba(255,255,255,0.7); outline: 1px solid #d9a441; }
+.note-replies { border-top: 1px dashed rgba(0,0,0,0.14); padding: 5px 8px; }
+.note-reply { font-size: 0.6875rem; color: #57534e; margin-bottom: 3px; }
+.note-reply b { color: #44403c; }
+.note-foot { display: flex; gap: 4px; padding: 5px 8px; border-top: 1px solid rgba(0,0,0,0.09); }
+.note-foot input {
+  flex: 1; font-family: inherit; font-size: 0.6875rem; padding: 3px 5px;
+  border: 1px solid rgba(0,0,0,0.18); border-radius: 3px; background: rgba(255,255,255,0.75);
+}
+.note-count-pill {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 9px;
+  background: #fde68a; color: #7a4f00; font-size: 0.625rem; font-weight: 700;
+}
+@media print {
+  .note-bubble { display: none !important; }
+}
+
+/* ========================================================================
+   IMPACT BADGE SYSTEM — consistent labels
+   ======================================================================== */
+.impact-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.impact-badge.critical {
+  background: var(--impact-critical-bg);
+  color: var(--impact-critical-fg);
+  border-color: var(--impact-critical-bd);
+}
+.impact-badge.high {
+  background: var(--impact-high-bg);
+  color: var(--impact-high-fg);
+  border-color: var(--impact-high-bd);
+}
+.impact-badge.medium {
+  background: var(--impact-medium-bg);
+  color: var(--impact-medium-fg);
+  border-color: var(--impact-medium-bd);
+}
+.impact-badge.low {
+  background: var(--impact-low-bg);
+  color: var(--impact-low-fg);
+  border-color: var(--impact-low-bd);
+}
+
+/* ========================================================================
+   ADMIN MODAL — add/edit/delete reports
+   ======================================================================== */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 30, 61, 0.5);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--white);
+  border-radius: 8px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.modal-header {
+  padding: var(--space-lg);
+  border-bottom: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-header h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--navy-800);
+}
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: var(--slate-400);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.modal-close:hover { background: var(--slate-100); color: var(--slate-600); }
+.modal-body { padding: var(--space-lg); }
+.modal-body .feedback-field { margin-bottom: var(--space-md); }
+.modal-footer {
+  padding: var(--space-lg);
+  border-top: var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+.modal-btn {
+  padding: 10px 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--slate-300);
+  background: var(--white);
+  color: var(--slate-600);
+}
+.modal-btn:hover { background: var(--slate-100); }
+.modal-btn.primary {
+  background: var(--navy-700);
+  color: var(--white);
+  border-color: var(--navy-700);
+}
+.modal-btn.primary:hover { background: var(--navy-600); }
+.modal-btn.danger {
+  background: var(--impact-critical-fg);
+  color: var(--white);
+  border-color: var(--impact-critical-fg);
+}
+.modal-btn.danger:hover { background: #7f1d1d; }
+
+/* ---------- PDF Upload ---------- */
+.upload-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: var(--space-lg);
+  border-bottom: var(--border-strong);
+}
+.upload-tab {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--slate-500);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.upload-tab.active {
+  color: var(--navy-700);
+  border-bottom-color: var(--navy-700);
+}
+.upload-panel { display: none; }
+.upload-panel.active { display: block; }
+
+.pdf-drop-zone {
+  border: 2px dashed var(--slate-300);
+  border-radius: 8px;
+  padding: var(--space-2xl);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--slate-50);
+}
+.pdf-drop-zone:hover,
+.pdf-drop-zone.dragover {
+  border-color: var(--navy-500);
+  background: var(--navy-50, #f0f4fa);
+}
+.pdf-drop-zone .drop-icon {
+  font-size: 2rem;
+  color: var(--slate-400);
+  margin-bottom: var(--space-sm);
+}
+.pdf-drop-zone .drop-text {
+  font-size: 0.875rem;
+  color: var(--slate-600);
+  font-weight: 600;
+}
+.pdf-drop-zone .drop-hint {
+  font-size: 0.75rem;
+  color: var(--slate-400);
+  margin-top: var(--space-xs);
+}
+.pdf-file-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--impact-medium-bg);
+  border: 1px solid var(--impact-medium-bd);
+  border-radius: 6px;
+  margin-top: var(--space-md);
+}
+.pdf-file-info .pdf-icon {
+  font-size: 1.5rem;
+}
+.pdf-file-info .pdf-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--slate-700);
+}
+.pdf-file-info .pdf-size {
+  font-size: 0.75rem;
+  color: var(--slate-500);
+}
+.pdf-file-info .pdf-remove {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--impact-critical-fg);
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+.pdf-upload-progress {
+  height: 4px;
+  background: var(--slate-200);
+  border-radius: 2px;
+  margin-top: var(--space-sm);
+  overflow: hidden;
+  display: none;
+}
+.pdf-upload-progress.active { display: block; }
+.pdf-upload-progress .bar {
+  height: 100%;
+  background: var(--navy-600);
+  width: 0%;
+  transition: width 0.3s;
+}
+
+/* PDF attachment display in Report tab */
+.report-pdf-attachment {
+  max-width: var(--reading-width);
+  margin: 0 auto var(--space-lg);
+  padding: var(--space-md);
+  background: var(--slate-50);
+  border: var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+.report-pdf-attachment .pdf-icon-lg {
+  font-size: 2rem;
+  color: var(--impact-critical-fg);
+}
+.report-pdf-attachment .pdf-meta {
+  flex: 1;
+}
+.report-pdf-attachment .pdf-meta .name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--slate-700);
+}
+.report-pdf-attachment .pdf-meta .size {
+  font-size: 0.75rem;
+  color: var(--slate-500);
+}
+.report-pdf-attachment .pdf-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+.report-pdf-attachment .pdf-actions a,
+.report-pdf-attachment .pdf-actions button {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 4px;
+  text-decoration: none;
+  border: 1px solid var(--slate-300);
+  background: var(--white);
+  color: var(--slate-600);
+  cursor: pointer;
+}
+.report-pdf-attachment .pdf-actions .view-btn {
+  background: var(--navy-700);
+  color: var(--white);
+  border-color: var(--navy-700);
+}
+.report-pdf-attachment .pdf-actions .view-btn:hover {
+  background: var(--navy-600);
+}
+
+/* Admin report list */
+.admin-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.admin-report-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  border: var(--border);
+  border-radius: 6px;
+  background: var(--slate-50);
+}
+.admin-report-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+.admin-report-edition {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--navy-700);
+}
+.admin-report-date {
+  font-size: 0.75rem;
+  color: var(--slate-500);
+}
+.admin-report-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+.admin-action-btn {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: var(--border-strong);
+  background: var(--white);
+  color: var(--slate-600);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.admin-action-btn:hover { background: var(--slate-100); }
+.admin-action-btn.edit { color: var(--navy-600); border-color: var(--navy-500); }
+.admin-action-btn.delete { color: var(--impact-critical-fg); border-color: var(--impact-critical-bd); }
+.admin-action-btn.delete:hover { background: var(--impact-critical-bg); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+  .masthead-inner { flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
+  .masthead-meta { flex-wrap: wrap; }
+  .summary-grid { grid-template-columns: 1fr; }
+  .main { padding: var(--space-lg) var(--space-md); }
+  .tab-nav-inner { padding: 0 var(--space-md); }
+  .report-header h2 { font-size: 1.5rem; }
+}
+
+/* ---------- Utility ---------- */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- ======================== MASTHEAD ======================== -->
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="masthead-brand">
+      <h1>Maida Vale</h1>
+      <span class="subtitle">Weekly Brief</span>
+    </div>
+    <div class="masthead-meta">
+      <span class="edition-label" id="editionLabel">Week 38</span>
+      <span class="sep">·</span>
+      <span id="editionDate">15 September 2026</span>
+      <span class="sep no-print">·</span>
+      <select id="editionSelect" class="edition-select no-print"
+              onchange="loadEdition(this.value)" title="Switch edition"></select>
+      <span class="sep">·</span>
+      <span>Malaysia Sector Intelligence</span>
+    </div>
+  </div>
+</header>
+
+<!-- ======================== ACTIONS BAR ======================== -->
+<div class="admin-bar no-print">
+  <div class="admin-bar-inner">
+    <div class="admin-actions">
+      <button class="admin-btn primary" onclick="openModal('add')">
+        <span class="icon">+</span> Add Report
+      </button>
+      <button class="admin-btn" onclick="openModal('manage')">
+        <span class="icon">⚙</span> Manage Reports
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== TAB NAV ======================== -->
+<nav class="tab-nav no-print">
+  <div class="tab-nav-inner">
+    <button class="tab-btn active" data-tab="summary" onclick="switchTab('summary')">
+      Executive Summary
+    </button>
+    <button class="tab-btn" data-tab="report" onclick="switchTab('report')">
+      Report <span class="tab-count" id="reportCount">11</span>
+    </button>
+    <button class="tab-btn" data-tab="ask" onclick="switchTab('ask')">
+      Ask
+    </button>
+    <button class="tab-btn" data-tab="trends" onclick="switchTab('trends')">
+      Trends
+    </button>
+    <button class="tab-btn" data-tab="indicators" onclick="switchTab('indicators')">
+      Indicators
+    </button>
+  </div>
+</nav>
+
+<!-- ======================== MAIN CONTENT ======================== -->
+<main class="main">
+
+  <!-- ============ EXECUTIVE SUMMARY ============ -->
+  <section class="tab-panel active" id="tab-summary">
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h3>This Week in Brief</h3>
+        <p class="summary-paragraph" id="summaryParagraph">
+          <!-- Filled by JS from edition data -->
+        </p>
+      </div>
+      <div class="summary-card">
+        <h3>Sector Heat</h3>
+        <div class="sector-heat" id="sectorHeat">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <h3>Watch List Delta — vs Last Week</h3>
+        <div class="watch-delta" id="watchDelta">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+      <div class="summary-card">
+        <h3>Carry-Forward Flags</h3>
+        <div class="carry-forward" id="carryForward">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top: var(--space-xl);">
+      <button class="read-aloud-btn" onclick="switchTab('report')" style="background: var(--navy-700);">
+        Read Full Report →
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ REPORT ============ -->
+  <section class="tab-panel" id="tab-report">
+    <div class="report-header">
+      <h2 id="reportTitle">Weekly Brief — Week 38</h2>
+      <div class="report-meta">
+        <span id="reportDate">15 September 2026</span>
+        <span class="sep">·</span>
+        <span>Filed Edition</span>
+        <span class="sep">·</span>
+        <span id="reportSectionCount">11 sections</span>
+      </div>
+    </div>
+
+    <div class="report-filter-bar no-print" id="reportFilterBar">
+
+      <!-- Filled by JS -->
+
+    </div>
+
+
+    <div class="read-aloud-bar no-print">
+      <button class="read-aloud-btn" id="readAloudBtn" onclick="toggleReadAloud()">
+        <span id="readAloudIcon">&#9654;</span> <span id="readAloudLabel">Read Aloud</span>
+      </button>
+      <select id="voiceSelect" class="ra-select" title="Narration voice"></select>
+      <label class="ra-speed">
+        Speed
+        <input type="range" id="speedRange" min="0.75" max="2" step="0.05" value="1"
+               oninput="setSpeed(this.value)">
+        <span id="speedLabel">1.0&times;</span>
+      </label>
+      <span class="read-aloud-status" id="readAloudStatus"></span>
+      <span class="ra-spacer"></span>
+      <div class="view-switch" id="viewSwitch" title="How to read the report">
+        <button class="view-btn-sw active" data-view="prose" onclick="setReportView('prose')">Wording</button>
+        <button class="view-btn-sw" data-view="table" onclick="setReportView('table')">Table</button>
+        <button class="view-btn-sw" data-view="visual" onclick="setReportView('visual')">Visual</button>
+      </div>
+      <button class="ra-note-btn" id="noteModeBtn" onclick="toggleNoteMode()"
+              title="Drop a sticky note anywhere on the report">&#128221; Add note</button>
+      <div class="export-menu">
+        <button class="ra-export-btn" onclick="toggleExportMenu(event)">Export &#9662;</button>
+        <div class="export-dropdown" id="exportDropdown">
+          <a href="#" onclick="doExport('pdf');return false;">PDF document</a>
+          <a href="#" onclick="doExport('docx');return false;">Word document</a>
+          <a href="#" onclick="window.print();closeExportMenu();return false;">Print / Save as PDF</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="reportPdfAttachment"><!-- PDF attachment rendered here by JS --></div>
+
+    <div class="report-body" id="reportBody">
+      <!-- Filled by JS from edition data -->
+    </div>
+  </section>
+
+  <!-- ============ ASK ============ -->
+  <section class="tab-panel" id="tab-ask">
+    <div class="ask-container">
+      <div class="ask-suggested">
+        <h3>Executive Questions — Click to Ask</h3>
+        <div class="ask-suggested-chips" id="askChips">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+      <div class="ask-input-row">
+        <input type="text" class="ask-input" id="askInput" placeholder="Ask a question about this week's brief…" onkeydown="if(event.key==='Enter')submitAsk()">
+        <button class="ask-submit" onclick="submitAsk()">Ask</button>
+      </div>
+      <div class="ask-answer" id="askAnswer">
+        <div class="ask-answer-empty">
+          Select a question above or type your own. Every answer is sourced — no generated content.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TRENDS ============ -->
+  <section class="tab-panel" id="tab-trends">
+    <div class="trends-container" id="trendsContainer">
+      <!-- Filled by JS -->
+    </div>
+  </section>
+
+  <!-- ============ INDICATORS ============ -->
+  <section class="tab-panel" id="tab-indicators">
+    <div class="indicators-container">
+      <div class="pulse-table-wrapper">
+        <table class="pulse-table" id="pulseTable">
+          <!-- Filled by JS -->
+        </table>
+      </div>
+      <div class="pulse-table-footer">
+        Source: Bank Negara Malaysia, Department of Statistics, Bursa Malaysia.
+        Figures as of latest available release. Δ = change vs prior period.
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ======================== ADMIN MODAL ======================== -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Add Report</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <!-- Filled by JS -->
+    </div>
+    <div class="modal-footer" id="modalFooter">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========================================================================
+   APP LOGIC — vanilla, no build step
+   Expects /api/ endpoints from Flask backend:
+   GET  /api/editions              → list of editions
+   GET  /api/edition/<id>          → single edition with sections + items
+   POST /api/edition               → create new edition from JSON (admin)
+   POST /api/edition/upload-pdf    → create new edition from PDF upload (admin, multipart/form-data)
+   PUT  /api/edition/<id>          → update edition (admin)
+   DEL  /api/edition/<id>          → delete edition (admin)
+   POST /api/ask                   → { query } → { answer, sources[] }
+   POST /api/feedback              → { type, section, text }
+   GET  /api/feedback               → list of feedback entries
+
+   Edition JSON may include a `pdf` field: { name, url, size }
+   for PDF-linked editions.
+   ======================================================================== */
+
+let currentEdition = null;
+let reportFilter = 'all'; // 'all' or a section title
+let editions = [];
+let isReading = false;
+let utterance = null;
+
+/* ---------- Tab Switching ---------- */
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (isReading) stopReadAloud();
+}
+
+/* ---------- Load Edition ---------- */
+async function loadEdition(editionId) {
+  try {
+    const res = await fetch(`/api/edition/${editionId || 'latest'}`);
+    if (!res.ok) throw new Error('no edition');
+    currentEdition = await res.json();
+    reportFilter = 'all';
+    renderEdition();
+    await loadEditionPicker();
+  } catch (e) {
+    // Fallback: render with placeholder if API not available
+    renderPlaceholder();
+  }
+}
+
+async function loadEditionPicker() {
+  const sel = document.getElementById('editionSelect');
+  if (!sel) return;
+  try {
+    const res = await fetch('/api/editions');
+    editions = await res.json();
+    // Newest first — an executive opens the current week.
+    const list = [...editions].sort((a, b) => (a.date < b.date ? 1 : -1));
+    sel.innerHTML = list.map(ed =>
+      `<option value="${ed.id}">W${ed.week} — ${ed.label || formatDate(ed.date)}</option>`
+    ).join('');
+    if (currentEdition) sel.value = currentEdition.id;
+  } catch (e) { /* picker is a convenience; the report still renders */ }
+}
+
+function renderEdition() {
+  if (!currentEdition) return renderPlaceholder();
+
+  // Masthead
+  document.getElementById('editionLabel').textContent = `Week ${currentEdition.week}`;
+  document.getElementById('editionDate').textContent = formatDate(currentEdition.date);
+
+  // Report header
+  document.getElementById('reportTitle').textContent = `Weekly Brief — Week ${currentEdition.week}`;
+  document.getElementById('reportDate').textContent = formatDate(currentEdition.date);
+  document.getElementById('reportSectionCount').textContent = `${currentEdition.sections.length} sections`;
+  document.getElementById('reportCount').textContent = currentEdition.sections.length;
+
+  // Filter bar + report body
+  renderFilterBar();
+  renderReport();
+
+  // PDF attachment (if edition has a linked PDF)
+  renderPdfAttachment();
+
+  // Executive Summary
+  renderSummary();
+  // Ask chips
+  renderAskChips();
+  // Trends
+  renderTrends();
+  // Indicators
+  renderPulseTable();
+  // Sticky notes
+  loadNotes();
+}
+
+/* ---------- Sector Filter ---------- */
+function renderFilterBar() {
+  const bar = document.getElementById('reportFilterBar');
+  if (!bar) return;
+  if (!currentEdition || !currentEdition.sections) { bar.innerHTML = ''; return; }
+
+  const secs = currentEdition.sections;
+  const allCount = secs.reduce((n, s) => n + (s.items ? s.items.length : 0), 0);
+
+  let html = '<span class="filter-label">Filter by sector</span>';
+  html += `<button class="filter-chip ${reportFilter === 'all' ? 'active' : ''}" onclick="setReportFilter('all')">All <span class="filter-count">${allCount}</span></button>`;
+  secs.forEach((sec, i) => {
+    const count = sec.items ? sec.items.length : 0;
+    if (!count) return;
+    // Chip label: drop the "Region - n." prefix and the trailing Sector/Market
+    // so eleven chips fit without wrapping into a wall of text.
+    const label = sec.title
+      .replace(/^[A-Za-z ]+ - \d+\.\s*/, '')
+      .replace(/\s*(Sector|Market)$/, '');
+    // Index-based, so titles containing quotes or slashes can't break the handler.
+    html += `<button class="filter-chip ${reportFilter === i ? 'active' : ''}" onclick="setReportFilter(${i})" title="${sec.title}">${label} <span class="filter-count">${count}</span></button>`;
+  });
+  bar.innerHTML = html;
+}
+
+function setReportFilter(sector) {
+  reportFilter = sector;
+  renderFilterBar();
+  renderReport();
+  document.getElementById('reportBody').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function renderReport() {
+  const body = document.getElementById('reportBody');
+  if (!currentEdition || !currentEdition.sections) { body.innerHTML = ''; return; }
+
+  const all = currentEdition.sections;
+  const sections = reportFilter === 'all' ? all : all.filter((s, i) => i === reportFilter);
+
+  const totalItems = sections.reduce((n, s) => n + (s.items ? s.items.length : 0), 0);
+  document.getElementById('reportSectionCount').textContent = reportFilter === 'all'
+    ? `${all.length} sections · ${totalItems} item${totalItems !== 1 ? 's' : ''}`
+    : `${sections.length} section${sections.length !== 1 ? 's' : ''} · ${totalItems} item${totalItems !== 1 ? 's' : ''}`;
+
+  if (sections.length === 0) {
+    body.innerHTML = '<div style="text-align:center;padding:48px;color:var(--slate-400);">No sections match this filter.</div>';
+    return;
+  }
+
+  if (reportView === 'table')  { body.innerHTML = renderTableView(sections);  renderNotes(); return; }
+  if (reportView === 'visual') { body.innerHTML = renderVisualView(sections); renderNotes(); return; }
+
+  body.innerHTML = sections.map(sec => `
+    <div class="report-section">
+      <div class="report-section-title">
+        ${sec.title}
+        <span class="section-count">${sec.items.length} item${sec.items.length !== 1 ? 's' : ''}</span>
+      </div>
+      ${sec.items.map(item => `
+        <div class="report-item">
+          <div class="report-item-header">
+            <div class="report-item-title">${item.title}</div>
+            ${item.impact ? `<span class="impact-badge ${item.impact}">${item.impact_label || item.impact}</span>` : ''}
+          </div>
+          <div class="report-item-body">${item.body}</div>
+          ${item.source ? `<div class="report-item-source">Source: ${item.source}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+
+  renderNotes();
+}
+
+function renderPdfAttachment() {
+  const el = document.getElementById('reportPdfAttachment');
+  if (!currentEdition || !currentEdition.pdf) { el.innerHTML = ''; return; }
+  const pdf = currentEdition.pdf;
+  const sizeStr = pdf.size ? (pdf.size > 1024 * 1024
+    ? (pdf.size / 1024 / 1024).toFixed(1) + ' MB'
+    : (pdf.size / 1024).toFixed(0) + ' KB') : '';
+  el.innerHTML = `
+    <div class="report-pdf-attachment no-print">
+      <span class="pdf-icon-lg">📄</span>
+      <div class="pdf-meta">
+        <div class="name">${pdf.name || 'Weekly Brief PDF'}</div>
+        ${sizeStr ? `<div class="size">${sizeStr}</div>` : ''}
+      </div>
+      <div class="pdf-actions">
+        <a class="view-btn" href="${pdf.url}" target="_blank">View PDF</a>
+        <a href="${pdf.url}" download>Download</a>
+      </div>
+    </div>
+  `;
+}
+
+function renderSummary() {
+  // This week paragraph — top impact items
+  const allItems = (currentEdition.sections || []).flatMap(s =>
+    (s.items || []).map(i => ({...i, section: s.title}))
+  );
+  const topItems = allItems
+    .filter(i => i.impact === 'critical' || i.impact === 'high')
+    .slice(0, 5);
+
+  const summaryEl = document.getElementById('summaryParagraph');
+  if (currentEdition.exec_summary) {
+    // The brief's own published executive summary is the authoritative text.
+    summaryEl.innerHTML = currentEdition.exec_summary;
+  } else if (topItems.length > 0) {
+    summaryEl.innerHTML = topItems.map(i => {
+      const t = i.plain || i.body;
+      return `<span class="highlight">${i.title}:</span> ${t.substring(0, 160)}${t.length > 160 ? '…' : ''}`;
+    }).join(' ');
+  } else {
+    summaryEl.textContent = 'No high-impact items flagged this week.';
+  }
+
+  // Sector heat
+  // Sectors come from the edition's own published subsections.
+  const heatEl = document.getElementById('sectorHeat');
+  const secRows = (currentEdition.sections || []).map(sec => {
+    const items = sec.items || [];
+    const neg = items.filter(i => i.impact === 'critical').length;
+    const mix = items.filter(i => i.impact === 'high').length;
+    const pos = items.filter(i => i.impact === 'medium').length;
+    const dir = neg > pos ? 'down' : pos > neg ? 'up' : (mix ? 'flat' : 'flat');
+    // Short label: drop the numbering and the trailing "Sector"/"Market".
+    const name = sec.title
+      .replace(/^[A-Za-z ]+ - \d+\.\s*/, '')
+      .replace(/\s*(Sector|Market)$/, '');
+    const lead = items.find(i => i.impact === 'critical') || items[0];
+    return { name, dir, neg, pos, mix, count: items.length,
+             note: lead ? lead.title : 'No material movement' };
+  });
+  // Show the sectors that actually moved first.
+  secRows.sort((a, b) => (b.neg + b.pos) - (a.neg + a.pos));
+  heatEl.innerHTML = secRows.map(r => {
+    const arrow = r.dir === 'up' ? '▲' : r.dir === 'down' ? '▼' : '►';
+    return `
+      <div class="sector-heat-row">
+        <span class="sector-heat-name">${r.name}</span>
+        <span class="sector-dir ${r.dir}">${arrow}</span>
+        <span class="sector-heat-note">${r.note}</span>
+      </div>
+    `;
+  }).join('');
+
+  // Watch list delta
+  const deltaEl = document.getElementById('watchDelta');
+  const newItems = (currentEdition.delta || []).filter(d => d.status === 'new');
+  const escalated = (currentEdition.delta || []).filter(d => d.status === 'escalated');
+  const resolved = (currentEdition.delta || []).filter(d => d.status === 'resolved');
+  deltaEl.innerHTML = [...newItems, ...escalated, ...resolved].map(d => `
+    <div class="watch-delta-item ${d.status}">
+      <span class="watch-delta-tag">${d.status.toUpperCase()}</span>
+      <span>${d.title}</span>
+    </div>
+  `).join('') || '<div style="color:var(--slate-400);font-size:0.8125rem;">No changes from last week.</div>';
+
+  // Carry-forward
+  const carryEl = document.getElementById('carryForward');
+  const carryItems = (currentEdition.carry_forward || []);
+  carryEl.innerHTML = carryItems.map(c => `
+    <div class="carry-item">
+      <span>${c.title}</span>
+      <span class="carry-since">since W${c.since_week}</span>
+    </div>
+  `).join('') || '<div style="color:var(--slate-400);font-size:0.8125rem;">No open items carried forward.</div>';
+}
+
+/* ---------- Ask ---------- */
+const executiveQuestions = [
+  "Where is Brent and what does it cost us?",
+  "Show me all negative items",
+  "What changed on Bank Muamalat's funding?",
+  "What happened at PTP?",
+  "How has the data-centre theme moved over the weeks?",
+  "Palm oil closing stocks",
+  "What is the USD/MYR doing?",
+  "Proton and the automotive backdrop"
+];
+
+function renderAskChips() {
+  const chipsEl = document.getElementById('askChips');
+  chipsEl.innerHTML = executiveQuestions.map(q =>
+    `<button class="ask-chip" onclick="askQuestion('${q}')">${q}</button>`
+  ).join('');
+}
+
+function submitAsk() {
+  const q = document.getElementById('askInput').value.trim();
+  if (q) askQuestion(q);
+}
+
+async function askQuestion(question) {
+  document.getElementById('askInput').value = question;
+  const answerEl = document.getElementById('askAnswer');
+  answerEl.innerHTML = '<div class="ask-answer-empty">Searching sourced rows…</div>';
+
+  try {
+    const res = await fetch('/api/ask', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ query: question })
+    });
+    const data = await res.json();
+    answerEl.innerHTML = `
+      <div class="ask-answer-text">${data.answer}</div>
+      <div class="ask-answer-sources">
+        <h4>Sources (${data.sources.length})</h4>
+        ${data.sources.map(s => `
+          <div class="ask-source-row">
+            <span class="ask-source-ref">${s.ref}</span>
+            <span class="ask-source-text">${s.text}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch (e) {
+    answerEl.innerHTML = `<div class="ask-answer-empty">Unable to retrieve answer. The Ask API may not be running.</div>`;
+  }
+}
+
+/* ---------- Trends ---------- */
+function renderTrends() {
+  const container = document.getElementById('trendsContainer');
+  const trends = currentEdition.trends || [];
+  if (trends.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--slate-400);padding:48px;">No trend data for this edition.</div>';
+    return;
+  }
+  container.innerHTML = trends.map(t => {
+    const dir = t.change > 0 ? 'up' : t.change < 0 ? 'down' : 'flat';
+    const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '►';
+    return `
+      <div class="trends-item">
+        <div class="trends-item-header">
+          <span class="trends-item-title">${t.title}</span>
+          <span class="trends-item-value ${dir}">${arrow} ${t.value}${t.unit || ''}</span>
+        </div>
+        <div class="trends-chart" data-points='${JSON.stringify(t.points || [])}'></div>
+        <div class="trends-baseline">
+          <span><span class="label">4-week avg:</span> ${t.avg || '—'}</span>
+          <span><span class="label">Prior:</span> ${t.prior || '—'}</span>
+          <span><span class="label">Current:</span> ${t.value}${t.unit || ''}</span>
+        </div>
+        ${t.context ? `<div class="trends-context">${t.context} <a href="#" onclick="switchTab('report');return false;">→ Full report</a></div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  // Draw simple sparklines
+  document.querySelectorAll('.trends-chart').forEach(el => {
+    drawSparkline(el);
+  });
+}
+
+function drawSparkline(el) {
+  const points = JSON.parse(el.dataset.points || '[]');
+  if (points.length < 2) return;
+  const w = el.clientWidth || 300;
+  const h = 120;
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  const range = max - min || 1;
+  const step = w / (points.length - 1);
+
+  const coords = points.map((p, i) => `${i * step},${h - ((p - min) / range) * (h - 20) - 10}`);
+  const polyline = coords.join(' ');
+  const areaPath = `0,${h} ${polyline} ${w},${h}`;
+
+  el.innerHTML = `
+    <svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="overflow:visible">
+      <polygon points="${areaPath}" fill="rgba(58,83,136,0.08)" />
+      <polyline points="${polyline}" fill="none" stroke="var(--navy-600)" stroke-width="2" />
+      ${coords.map((c, i) => {
+        const [x, y] = c.split(',');
+        return `<circle cx="${x}" cy="${y}" r="3" fill="var(--navy-700)" />`;
+      }).join('')}
+    </svg>
+  `;
+}
+
+/* ---------- Pulse Table (Indicators) ---------- */
+function renderPulseTable() {
+  const table = document.getElementById('pulseTable');
+  const groups = currentEdition.indicators || [];
+  if (groups.length === 0) {
+    table.innerHTML = '<tbody><tr><td style="padding:24px;text-align:center;color:var(--slate-400);">No indicator data for this edition.</td></tr></tbody>';
+    return;
+  }
+
+  let html = `
+    <thead>
+      <tr>
+        <th>Indicator</th>
+        <th class="num">Current</th>
+        <th class="num">Prior</th>
+        <th class="num">Δ</th>
+        <th class="num">4-Wk Avg</th>
+        <th>Trend</th>
+        <th>Source</th>
+      </tr>
+    </thead>
+    <tbody>
+  `;
+
+  groups.forEach(group => {
+    html += `<tr class="row-section-header"><td colspan="7">${group.category}</td></tr>`;
+    (group.items || []).forEach(item => {
+      const dir = item.change > 0 ? 'up' : item.change < 0 ? 'down' : 'flat';
+      const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '►';
+      const trendSpark = (item.history || []).length > 1
+        ? `<svg width="60" height="20">${miniSpark(item.history)}</svg>`
+        : '—';
+      html += `
+        <tr>
+          <td>${item.name}</td>
+          <td class="num">${item.current}</td>
+          <td class="num">${item.prior || '—'}</td>
+          <td class="num delta-${dir}">${arrow} ${item.change !== undefined ? (item.change > 0 ? '+' : '') + item.change : '—'}</td>
+          <td class="num">${item.avg || '—'}</td>
+          <td>${trendSpark}</td>
+          <td style="font-size:0.6875rem;color:var(--slate-500);">${item.source || ''}</td>
+        </tr>
+      `;
+    });
+  });
+
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function miniSpark(points) {
+  if (!points || points.length < 2) return '';
+  const w = 60, h = 20;
+  const max = Math.max(...points), min = Math.min(...points);
+  const range = max - min || 1;
+  const step = w / (points.length - 1);
+  const coords = points.map((p, i) => `${i * step},${h - ((p - min) / range) * (h - 4) - 2}`);
+  return `<polyline points="${coords.join(' ')}" fill="none" stroke="var(--navy-600)" stroke-width="1.5" />`;
+}
+
+/* ---------- Read Aloud — natural voice (Gemini TTS, server-side) ---------- */
+let ttsChunks = [];      // [{label, text}]
+let ttsIndex = 0;
+let ttsPlayer = null;
+let ttsSpeed = 1;
+let ttsVoice = 'Charon';
+let ttsStop = false;
+
+async function loadVoices() {
+  const sel = document.getElementById('voiceSelect');
+  if (!sel) return;
+  try {
+    const vs = await (await fetch('/api/voices')).json();
+    sel.innerHTML = vs.map(v => `<option value="${v.id}">${v.label}</option>`).join('');
+    sel.value = ttsVoice;
+    sel.onchange = () => { ttsVoice = sel.value; if (isReading) restartReading(); };
+  } catch (e) { sel.innerHTML = '<option>Charon</option>'; }
+}
+
+function setSpeed(v) {
+  ttsSpeed = parseFloat(v);
+  document.getElementById('speedLabel').textContent = ttsSpeed.toFixed(2).replace(/0$/,'') + '\u00d7';
+  // Applies live — playbackRate preserves pitch, so no re-generation needed.
+  if (ttsPlayer) ttsPlayer.playbackRate = ttsSpeed;
+}
+
+function toggleReadAloud() { isReading ? stopReadAloud() : startReadAloud(); }
+
+async function restartReading() { stopReadAloud(); await startReadAloud(); }
+
+async function startReadAloud() {
+  if (!currentEdition) return;
+  isReading = true; ttsStop = false;
+  document.getElementById('readAloudBtn').classList.add('playing');
+  document.getElementById('readAloudIcon').textContent = '\u25A0';
+  document.getElementById('readAloudLabel').textContent = 'Stop';
+  setStatus('Preparing narration\u2026');
+
+  try {
+    const plan = await (await fetch('/api/tts/plan', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ edition: currentEdition.id })
+    })).json();
+    ttsChunks = plan.chunks || [];
+  } catch (e) { setStatus('Could not prepare narration.'); return stopReadAloud(); }
+
+  // If a sector filter is on, read only that sector.
+  if (reportFilter !== 'all' && currentEdition.sections[reportFilter]) {
+    const want = currentEdition.sections[reportFilter].title;
+    const only = ttsChunks.filter(c => c.label === want);
+    if (only.length) ttsChunks = only;
+  }
+
+  ttsIndex = 0;
+  playNextChunk();
+}
+
+async function playNextChunk() {
+  if (ttsStop || ttsIndex >= ttsChunks.length) {
+    if (!ttsStop) setStatus('Finished.');
+    return stopReadAloud(true);
+  }
+  const chunk = ttsChunks[ttsIndex];
+  setStatus(`Preparing ${ttsIndex + 1}/${ttsChunks.length}: ${shortLabel(chunk.label)}\u2026`);
+  let url;
+  try {
+    const r = await fetch('/api/tts', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text: chunk.text, voice: ttsVoice })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'tts failed');
+    url = d.url;
+  } catch (e) {
+    setStatus('Narration unavailable for this section \u2014 skipping.');
+    ttsIndex++;
+    return playNextChunk();
+  }
+  if (ttsStop) return;
+
+  ttsPlayer = new Audio(url);
+  ttsPlayer.playbackRate = ttsSpeed;
+  ttsPlayer.onended = () => { ttsIndex++; playNextChunk(); };
+  ttsPlayer.onerror = () => { ttsIndex++; playNextChunk(); };
+  ttsPlayer.play().catch(() => setStatus('Tap Read Aloud again to allow audio.'));
+  setStatus(`Reading ${ttsIndex + 1}/${ttsChunks.length}: ${shortLabel(chunk.label)}`);
+  // Prefetch the next chunk so playback is continuous.
+  const nxt = ttsChunks[ttsIndex + 1];
+  if (nxt) fetch('/api/tts', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ text: nxt.text, voice: ttsVoice })
+  }).catch(() => {});
+}
+
+function shortLabel(s) {
+  return (s || '').replace(/^[A-Za-z ]+ - \d+\.\s*/, '').replace(/\s*(Sector|Market)$/, '');
+}
+
+function stopReadAloud(finished) {
+  ttsStop = true;
+  if (ttsPlayer) { try { ttsPlayer.pause(); } catch (e) {} ttsPlayer = null; }
+  isReading = false;
+  const b = document.getElementById('readAloudBtn');
+  if (b) b.classList.remove('playing');
+  const i = document.getElementById('readAloudIcon');
+  if (i) i.textContent = '\u25B6';
+  const l = document.getElementById('readAloudLabel');
+  if (l) l.textContent = 'Read Aloud';
+  if (!finished) setStatus('');
+}
+
+function setStatus(t) {
+  const el = document.getElementById('readAloudStatus');
+  if (el) el.textContent = t;
+}
+
+/* ---------- Export ---------- */
+function toggleExportMenu(ev) {
+  if (ev) ev.stopPropagation();
+  document.getElementById('exportDropdown').classList.toggle('open');
+}
+function closeExportMenu() {
+  const d = document.getElementById('exportDropdown');
+  if (d) d.classList.remove('open');
+}
+document.addEventListener('click', closeExportMenu);
+
+function doExport(fmt) {
+  closeExportMenu();
+  if (!currentEdition) return;
+  window.location.href = `/api/export/${currentEdition.id}.${fmt}`;
+}
+
+/* ---------- Reading modes: wording / table / visual ---------- */
+let reportView = 'prose';
+
+function setReportView(v) {
+  reportView = v;
+  document.querySelectorAll('.view-btn-sw').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === v));
+  renderReport();
+}
+
+function renderTableView(sections) {
+  let html = `<div class="report-table-view"><table class="report-table">
+      <thead><tr>
+        <th style="width:23%">Item</th>
+        <th style="width:45%">Summary</th>
+        <th style="width:11%">Impact</th>
+        <th style="width:21%">Source</th>
+      </tr></thead><tbody>`;
+  sections.forEach(sec => {
+    html += `<tr class="row-section-header"><td colspan="4">${sec.title}</td></tr>`;
+    (sec.items || []).forEach(item => {
+      const plain = item.plain || stripTags(item.body);
+      html += `<tr>
+        <td class="col-title">${item.title}</td>
+        <td class="col-body">${plain}</td>
+        <td>${item.impact ? `<span class="impact-badge ${item.impact}">${item.impact_label || item.impact}</span>` : '\u2014'}</td>
+        <td class="col-source">${item.source || '\u2014'}</td>
+      </tr>`;
+    });
+  });
+  return html + '</tbody></table></div>';
+}
+
+function renderVisualView(sections) {
+  const cards = [];
+  sections.forEach(sec => (sec.items || []).forEach(item => {
+    const plain = item.plain || stripTags(item.body);
+    // Pull the first figure out of the text so each card leads with a number.
+    const fig = (plain.match(/(?:USD|RM)\s?[\d.,]+\s?(?:bn|m|tn|\/bbl)?|[\d.]+%/) || [])[0];
+    cards.push(`
+      <div class="visual-card">
+        <div class="vc-bar vc-${item.impact}"></div>
+        <div class="vc-body">
+          <div class="vc-sec">${shortLabel(sec.title)}</div>
+          <div class="vc-title">${item.title}</div>
+          ${fig ? `<div class="vc-figure">${fig}</div>` : ''}
+          <div class="vc-text">${plain.length > 210 ? plain.slice(0, 210) + '\u2026' : plain}</div>
+        </div>
+        <div class="vc-foot">
+          <span class="impact-badge ${item.impact}">${item.impact_label || item.impact}</span>
+          <span class="rt-src">${(item.source || '').split(',')[0]}</span>
+        </div>
+      </div>`);
+  }));
+  return `<div class="visual-grid">${cards.join('')}</div>`;
+}
+
+function stripTags(s) {
+  const d = document.createElement('div');
+  d.innerHTML = s || '';
+  return (d.textContent || '').trim();
+}
+
+/* ---------- Sticky notes ---------- */
+let notes = [];
+let noteMode = false;
+
+function toggleNoteMode() {
+  noteMode = !noteMode;
+  document.body.classList.toggle('note-mode', noteMode);
+  document.getElementById('noteModeBtn').classList.toggle('active', noteMode);
+  setStatus(noteMode ? 'Click anywhere on the report to place a note.' : '');
+}
+
+async function loadNotes() {
+  if (!currentEdition) return;
+  try {
+    notes = await (await fetch(`/api/notes?edition=${encodeURIComponent(currentEdition.id)}`)).json();
+  } catch (e) { notes = []; }
+  renderNotes();
+}
+
+function renderNotes() {
+  const body = document.getElementById('reportBody');
+  if (!body) return;
+  body.querySelectorAll('.note-bubble').forEach(n => n.remove());
+  const w = body.clientWidth, h = body.scrollHeight;
+  // Before layout settles (or in a hidden tab) these are 0; placing notes then
+  // would stack them all at the origin, so defer to the next frame instead.
+  if (!w || !h) { requestAnimationFrame(() => { if (body.clientWidth) renderNotes(); }); return; }
+  notes.forEach(n => {
+    const el = document.createElement('div');
+    el.className = `note-bubble ${n.colour || 'yellow'}${n.resolved ? ' resolved' : ''}`;
+    el.dataset.id = n.id;
+    el.style.left = Math.max(0, Math.min(n.x * w, w - 212)) + 'px';
+    el.style.top = (n.y * h) + 'px';
+    el.innerHTML = `
+      <div class="note-head" title="Drag to move">
+        <span class="nh-author">${esc(n.author || 'Anonymous')}</span>
+        <button onclick="editNote('${n.id}')" title="Edit">&#9998;</button>
+        <button onclick="resolveNote('${n.id}')" title="${n.resolved ? 'Reopen' : 'Mark done'}">&#10003;</button>
+        <button onclick="removeNote('${n.id}')" title="Delete">&times;</button>
+      </div>
+      <div class="note-body" data-id="${n.id}">${esc(n.text || '')}</div>
+      ${(n.replies || []).length ? `<div class="note-replies">${
+        n.replies.map(r => `<div class="note-reply"><b>${esc(r.author)}:</b> ${esc(r.text)}</div>`).join('')
+      }</div>` : ''}
+      <div class="note-foot">
+        <input placeholder="Reply\u2026" onkeydown="if(event.key==='Enter')replyNote('${n.id}',this)">
+      </div>`;
+    makeDraggable(el, n);
+    body.appendChild(el);
+  });
+  const pill = document.getElementById('notesCountPill');
+  if (pill) pill.textContent = notes.length ? notes.length : '';
+}
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function makeDraggable(el, n) {
+  const head = el.querySelector('.note-head');
+  let sx, sy, ox, oy, dragging = false;
+  head.addEventListener('mousedown', e => {
+    if (e.target.tagName === 'BUTTON') return;
+    dragging = true; sx = e.clientX; sy = e.clientY;
+    ox = parseFloat(el.style.left); oy = parseFloat(el.style.top);
+    e.preventDefault();
+  });
+  const move = e => {
+    if (!dragging) return;
+    el.style.left = (ox + e.clientX - sx) + 'px';
+    el.style.top  = (oy + e.clientY - sy) + 'px';
+  };
+  const up = async () => {
+    if (!dragging) return;
+    dragging = false;
+    const body = document.getElementById('reportBody');
+    const w = body.clientWidth || 1, h = body.scrollHeight || 1;
+    n.x = parseFloat(el.style.left) / w;
+    n.y = parseFloat(el.style.top) / h;
+    await fetch(`/api/notes/${n.id}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ x: n.x, y: n.y })
+    }).catch(() => {});
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+
+async function placeNoteAt(ev) {
+  if (!noteMode || !currentEdition) return;
+  if (ev.target.closest('.note-bubble')) return;
+  const body = document.getElementById('reportBody');
+  const r = body.getBoundingClientRect();
+  const x = (ev.clientX - r.left) / (body.clientWidth || 1);
+  const y = (ev.clientY - r.top + body.scrollTop) / (body.scrollHeight || 1);
+  const text = prompt('Note:');
+  if (!text) { toggleNoteMode(); return; }
+  const author = localStorage.getItem('briefAuthor') ||
+    (() => { const a = prompt('Your name:') || 'Anonymous';
+             localStorage.setItem('briefAuthor', a); return a; })();
+  try {
+    const n = await (await fetch('/api/notes', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ edition: currentEdition.id, x, y, text, author,
+                             anchor: (ev.target.closest('.report-item, .report-section, .visual-card') || {}).id || '' })
+    })).json();
+    notes.push(n);
+    renderNotes();
+  } catch (e) { alert('Could not save the note.'); }
+  toggleNoteMode();
+}
+
+async function editNote(id) {
+  const n = notes.find(x => x.id === id);
+  if (!n) return;
+  const text = prompt('Edit note:', n.text);
+  if (text == null) return;
+  n.text = text;
+  await fetch(`/api/notes/${id}`, { method:'PUT',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) });
+  renderNotes();
+}
+
+async function resolveNote(id) {
+  const n = notes.find(x => x.id === id);
+  if (!n) return;
+  n.resolved = !n.resolved;
+  await fetch(`/api/notes/${id}`, { method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ resolved: n.resolved }) });
+  renderNotes();
+}
+
+async function removeNote(id) {
+  if (!confirm('Delete this note?')) return;
+  await fetch(`/api/notes/${id}`, { method:'DELETE' });
+  notes = notes.filter(x => x.id !== id);
+  renderNotes();
+}
+
+async function replyNote(id, input) {
+  const text = input.value.trim();
+  if (!text) return;
+  const author = localStorage.getItem('briefAuthor') || 'Anonymous';
+  input.value = '';
+  const n = await (await fetch(`/api/notes/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ reply: text, author })
+  })).json();
+  const i = notes.findIndex(x => x.id === id);
+  if (i >= 0) notes[i] = n;
+  renderNotes();
+}
+
+/* ---------- Admin Modal ---------- */
+function openModal(mode) {
+  const overlay = document.getElementById('modalOverlay');
+  const title = document.getElementById('modalTitle');
+  const body = document.getElementById('modalBody');
+  const footer = document.getElementById('modalFooter');
+
+  if (mode === 'add') {
+    title.textContent = 'Add New Report';
+    body.innerHTML = `
+      <div class="feedback-field">
+        <label>Week Number</label>
+        <input type="number" id="newWeek" placeholder="e.g., 39" min="1" max="53">
+      </div>
+      <div class="feedback-field">
+        <label>Date</label>
+        <input type="date" id="newDate">
+      </div>
+      <div class="upload-tabs">
+        <button class="upload-tab active" onclick="switchUploadTab('json')">Upload JSON</button>
+        <button class="upload-tab" onclick="switchUploadTab('pdf')">Upload PDF</button>
+      </div>
+      <div class="upload-panel active" id="uploadPanelJson">
+        <div class="feedback-field">
+          <label>Report Content (JSON)</label>
+          <textarea id="newContent" style="min-height:160px;font-family:var(--font-mono);font-size:0.8125rem;" placeholder='{"sections": [...], "indicators": [...], ...}'></textarea>
+        </div>
+        <div class="feedback-field">
+          <label>Or upload JSON file</label>
+          <input type="file" accept=".json" id="newFile" onchange="loadFileContent(this)">
+        </div>
+      </div>
+      <div class="upload-panel" id="uploadPanelPdf">
+        <div class="pdf-drop-zone" id="pdfDropZone" onclick="document.getElementById('pdfFileInput').click()">
+          <div class="drop-icon">📄</div>
+          <div class="drop-text">Drop a PDF report here or click to browse</div>
+          <div class="drop-hint">PDF up to 20 MB — the file will be stored and linked from the Report tab</div>
+          <input type="file" accept=".pdf" id="pdfFileInput" style="display:none;" onchange="handlePdfSelect(this)">
+        </div>
+        <div id="pdfFileInfo"></div>
+        <div class="pdf-upload-progress" id="pdfUploadProgress"><div class="bar" id="pdfUploadBar"></div></div>
+      </div>
+    `;
+    footer.innerHTML = `
+      <button class="modal-btn" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="addReport()">Add Report</button>
+    `;
+    // Enable drag-and-drop on the PDF zone
+    enablePdfDragDrop();
+  } else if (mode === 'manage') {
+    title.textContent = 'Manage Reports';
+    body.innerHTML = `<div class="admin-report-list" id="adminReportList">Loading…</div>`;
+    footer.innerHTML = `<button class="modal-btn" onclick="closeModal()">Close</button>`;
+    loadAdminReportList();
+  } else if (mode && mode.startsWith('edit-')) {
+    const editionId = mode.replace('edit-', '');
+    title.textContent = 'Edit Report';
+    body.innerHTML = `
+      <div class="feedback-field">
+        <label>Week Number</label>
+        <input type="number" id="editWeek" disabled>
+      </div>
+      <div class="feedback-field">
+        <label>Date</label>
+        <input type="date" id="editDate">
+      </div>
+      <div class="feedback-field">
+        <label>Report Content (JSON)</label>
+        <textarea id="editContent" style="min-height:200px;font-family:var(--font-mono);font-size:0.8125rem;"></textarea>
+      </div>
+    `;
+    footer.innerHTML = `
+      <button class="modal-btn" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="saveEdit('${editionId}')">Save Changes</button>
+    `;
+    loadEditForm(editionId);
+  } else if (mode && mode.startsWith('delete-')) {
+    const editionId = mode.replace('delete-', '');
+    title.textContent = 'Delete Report';
+    body.innerHTML = `<p style="color:var(--impact-critical-fg);font-weight:600;">Are you sure you want to delete this report? This action cannot be undone.</p>`;
+    footer.innerHTML = `
+      <button class="modal-btn" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn danger" onclick="deleteReport('${editionId}')">Delete Permanently</button>
+    `;
+  }
+
+  overlay.classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+
+function loadFileContent(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('newContent').value = e.target.result;
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- Upload Tab Switching ---------- */
+function switchUploadTab(tab) {
+  document.querySelectorAll('.upload-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.upload-panel').forEach(p => p.classList.remove('active'));
+  if (tab === 'json') {
+    document.querySelector('.upload-tab:nth-child(1)').classList.add('active');
+    document.getElementById('uploadPanelJson').classList.add('active');
+  } else {
+    document.querySelector('.upload-tab:nth-child(2)').classList.add('active');
+    document.getElementById('uploadPanelPdf').classList.add('active');
+  }
+}
+
+/* ---------- PDF Upload ---------- */
+let selectedPdfFile = null;
+
+function handlePdfSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 20 * 1024 * 1024) {
+    alert('PDF must be under 20 MB.');
+    input.value = '';
+    return;
+  }
+  selectedPdfFile = file;
+  renderPdfFileInfo(file);
+}
+
+function renderPdfFileInfo(file) {
+  const el = document.getElementById('pdfFileInfo');
+  if (!file) { el.innerHTML = ''; return; }
+  const sizeStr = file.size > 1024 * 1024
+    ? (file.size / 1024 / 1024).toFixed(1) + ' MB'
+    : (file.size / 1024).toFixed(0) + ' KB';
+  el.innerHTML = `
+    <div class="pdf-file-info">
+      <span class="pdf-icon">📄</span>
+      <div>
+        <div class="pdf-name">${file.name}</div>
+        <div class="pdf-size">${sizeStr}</div>
+      </div>
+      <button class="pdf-remove" onclick="clearPdfFile()">✕ Remove</button>
+    </div>
+  `;
+}
+
+function clearPdfFile() {
+  selectedPdfFile = null;
+  document.getElementById('pdfFileInput').value = '';
+  document.getElementById('pdfFileInfo').innerHTML = '';
+}
+
+function enablePdfDragDrop() {
+  const zone = document.getElementById('pdfDropZone');
+  if (!zone) return;
+  ['dragenter', 'dragover'].forEach(ev => {
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+  });
+  ['dragleave', 'drop'].forEach(ev => {
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('dragover'); });
+  });
+  zone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') {
+      document.getElementById('pdfFileInput').files = e.dataTransfer.files;
+      handlePdfSelect({ files: e.dataTransfer.files });
+    } else {
+      alert('Please drop a PDF file.');
+    }
+  });
+}
+
+async function addReport() {
+  const week = document.getElementById('newWeek').value;
+  const date = document.getElementById('newDate').value;
+  if (!week || !date) { alert('Week number and date are required.'); return; }
+
+  // Check which upload tab is active
+  const pdfActive = document.getElementById('uploadPanelPdf').classList.contains('active');
+
+  if (pdfActive) {
+    // PDF upload mode
+    if (!selectedPdfFile) { alert('Please select a PDF file to upload.'); return; }
+    const formData = new FormData();
+    formData.append('week', week);
+    formData.append('date', date);
+    formData.append('pdf', selectedPdfFile);
+
+    const progressEl = document.getElementById('pdfUploadProgress');
+    const barEl = document.getElementById('pdfUploadBar');
+    progressEl.classList.add('active');
+    barEl.style.width = '30%';
+
+    try {
+      const res = await fetch('/api/edition/upload-pdf', {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      barEl.style.width = '100%';
+      setTimeout(() => {
+        closeModal();
+        selectedPdfFile = null;
+        loadEdition('latest');
+      }, 500);
+    } catch (e) {
+      progressEl.classList.remove('active');
+      barEl.style.width = '0%';
+      alert('Failed to upload PDF. Ensure the /api/edition/upload-pdf endpoint exists in app.py.');
+    }
+  } else {
+    // JSON upload mode
+    const content = document.getElementById('newContent').value;
+    try {
+      let payload = { week: parseInt(week), date: date };
+      if (content) {
+        const parsed = JSON.parse(content);
+        payload = { ...payload, ...parsed };
+      }
+      await fetch('/api/edition', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      closeModal();
+      loadEdition('latest');
+    } catch (e) {
+      alert('Failed to add report. Check JSON format and ensure the API is running.');
+    }
+  }
+}
+
+async function loadAdminReportList() {
+  const list = document.getElementById('adminReportList');
+  try {
+    const res = await fetch('/api/editions');
+    editions = await res.json();
+    list.innerHTML = editions.map(ed => `
+      <div class="admin-report-item">
+        <div class="admin-report-info">
+          <span class="admin-report-edition">Week ${ed.week}</span>
+          <span class="admin-report-date">${formatDate(ed.date)}</span>
+          <span class="admin-report-date">${ed.sections || 0} sections</span>
+          ${ed.pdf ? '<span class="admin-report-date" style="color:var(--impact-critical-fg);">📄 PDF</span>' : ''}
+        </div>
+        <div class="admin-report-actions">
+          <button class="admin-action-btn edit" onclick="openModal('edit-${ed.id}')">Edit</button>
+          <button class="admin-action-btn delete" onclick="openModal('delete-${ed.id}')">Delete</button>
+        </div>
+      </div>
+    `).join('') || '<div style="color:var(--slate-400);">No reports found.</div>';
+  } catch (e) {
+    list.innerHTML = '<div style="color:var(--slate-400);">Unable to load reports. API may not be running.</div>';
+  }
+}
+
+async function loadEditForm(editionId) {
+  try {
+    const res = await fetch(`/api/edition/${editionId}`);
+    const ed = await res.json();
+    document.getElementById('editWeek').value = ed.week;
+    document.getElementById('editDate').value = ed.date;
+    document.getElementById('editContent').value = JSON.stringify(ed, null, 2);
+  } catch (e) {
+    alert('Failed to load report for editing.');
+  }
+}
+
+async function saveEdit(editionId) {
+  const date = document.getElementById('editDate').value;
+  const content = document.getElementById('editContent').value;
+  try {
+    const payload = { date, ...JSON.parse(content) };
+    await fetch(`/api/edition/${editionId}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    closeModal();
+    loadEdition('latest');
+  } catch (e) {
+    alert('Failed to save changes. Check JSON format.');
+  }
+}
+
+async function deleteReport(editionId) {
+  try {
+    await fetch(`/api/edition/${editionId}`, { method: 'DELETE' });
+    closeModal();
+    loadEdition('latest');
+  } catch (e) {
+    alert('Failed to delete report.');
+  }
+}
+
+/* ---------- Utilities ---------- */
+function formatDate(d) {
+  if (!d) return '';
+  const date = new Date(d);
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function renderPlaceholder() {
+  document.getElementById('reportBody').innerHTML = `
+    <div class="report-section">
+      <div class="report-section-title">Loading… <span class="section-count">—</span></div>
+      <div class="report-item">
+        <div class="report-item-body" style="color:var(--slate-400);">
+          Waiting for edition data from the API. If this persists, the Flask backend may not be running.
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('summaryParagraph').textContent = 'Loading edition data…';
+  document.getElementById('sectorHeat').innerHTML = '<div style="color:var(--slate-400);font-size:0.8125rem;">Loading…</div>';
+  document.getElementById('reportFilterBar').innerHTML = '';
+  document.getElementById('watchDelta').innerHTML = '';
+  document.getElementById('carryForward').innerHTML = '';
+  renderAskChips();
+  document.getElementById('trendsContainer').innerHTML = '<div style="text-align:center;color:var(--slate-400);padding:48px;">Loading…</div>';
+  document.getElementById('pulseTable').innerHTML = '<tbody><tr><td style="padding:24px;text-align:center;color:var(--slate-400);">Loading…</td></tr></tbody>';
+}
+
+/* ---------- Init ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+  loadVoices();
+  loadEdition('latest');
+  const body = document.getElementById('reportBody');
+  if (body) body.addEventListener('click', placeNoteAt);
+  let rt;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderNotes, 200); });
+});
+
+// Close modal on overlay click
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+</script>
+</body>
+</html>
