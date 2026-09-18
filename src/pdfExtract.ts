@@ -23,7 +23,7 @@
 // c.env.OPENAI_BASE_URL (Cloudflare secrets the user has already set),
 // mirroring the existing GEMINI_API_KEY pattern used by tts.ts.
 
-import { extractText, getDocumentProxy } from 'unpdf'
+import { extractText, extractTextItems, getDocumentProxy } from 'unpdf'
 import type { NewsItem, PulseRow } from './types'
 
 export interface ExtractedEdition {
@@ -62,6 +62,80 @@ function getBody(text: string): string {
   const first = text.indexOf('Executive Summary')
   const second = text.indexOf('Executive Summary', first + 1)
   return second === -1 ? text : text.slice(second)
+}
+
+// `extractText({ mergePages: true })` collapses every line break to a single
+// "\n" and discards the vertical whitespace between paragraphs, so the
+// Executive Summary's Global / Asia-Pacific / Malaysia paragraphs (and any
+// further paragraphs, e.g. a "Results week" wrap-up) always come back as one
+// run-on block — there is no "\n\n" to split on. Rebuild paragraph breaks
+// from the PDF's own per-line Y coordinates instead: a gap between
+// consecutive lines that is meaningfully larger than the normal line-height
+// for that block marks a paragraph break, matching exactly how the source
+// PDF (and `pdftotext -layout`) visually separates them with a blank line.
+interface TextItem {
+  str: string
+  x: number
+  y: number
+  height: number
+  hasEOL: boolean
+}
+
+function findParagraphs(flatItems: TextItem[], headingStr: string, endStr: string): string[] | null {
+  // The heading appears twice: once as a Table-of-Content entry (with a
+  // trailing "…… <page>" and a different, smaller font height) and once as
+  // the real section heading. Skip the TOC entry.
+  const idxs: number[] = []
+  flatItems.forEach((it, i) => {
+    if (it.str === headingStr || it.str.startsWith(headingStr + ' ')) idxs.push(i)
+  })
+  if (idxs.length < 2) return null
+  const startIdx = idxs[1] + 1
+  let endIdx = flatItems.findIndex((it, i) => i > startIdx && it.str.startsWith(endStr))
+  if (endIdx === -1) endIdx = flatItems.length
+  const body = flatItems.slice(startIdx, endIdx)
+
+  // Reassemble wrapped words on the same visual line (pdf.js emits one item
+  // per word/run, only the final run on a line has hasEOL=true) into lines
+  // tagged with that line's Y coordinate.
+  const lines: { y: number; text: string }[] = []
+  let curY: number | null = null
+  let curParts: string[] = []
+  for (const it of body) {
+    if (curY === null && it.str.trim() === '') continue
+    if (curY === null) curY = it.y
+    curParts.push(it.str)
+    if (it.hasEOL) {
+      const t = curParts.join('').trim()
+      if (t) lines.push({ y: curY, text: t })
+      curY = null
+      curParts = []
+    }
+  }
+  const tail = curParts.join('').trim()
+  if (tail) lines.push({ y: curY ?? 0, text: tail })
+  if (lines.length === 0) return []
+
+  // The normal single-line-spacing gap is the median consecutive-line Y
+  // delta; a paragraph break is a gap noticeably (50%+) larger than that.
+  const gaps: number[] = []
+  for (let i = 1; i < lines.length; i++) gaps.push(lines[i - 1].y - lines[i].y)
+  const sorted = [...gaps].sort((a, b) => a - b)
+  const normalGap = sorted.length ? sorted[Math.floor(sorted.length * 0.5)] : 14.64
+  const threshold = normalGap * 1.5
+
+  const paragraphs: string[] = []
+  let curPara = [lines[0].text]
+  for (let i = 1; i < lines.length; i++) {
+    const gap = lines[i - 1].y - lines[i].y
+    if (gap > threshold) {
+      paragraphs.push(curPara.join(' '))
+      curPara = []
+    }
+    curPara.push(lines[i].text)
+  }
+  if (curPara.length) paragraphs.push(curPara.join(' '))
+  return paragraphs.filter((p) => p.trim().length > 0)
 }
 
 const MALAYSIA_HEADS = [
@@ -171,6 +245,12 @@ export async function extractEdition(
   // needs to be written to R2 as the stored attachment) stays intact.
   const pdf = await getDocumentProxy(new Uint8Array(pdfBuf.slice(0)))
   const { text } = await extractText(pdf, { mergePages: true })
+  // Also pull the raw per-line items (with Y coordinates) so the Executive
+  // Summary's paragraph breaks — lost by the merged/flattened `text` above —
+  // can be reconstructed. See findParagraphs().
+  const { items: itemsPerPage } = await extractTextItems(pdf)
+  const flatItems: TextItem[] = []
+  for (const page of itemsPerPage) for (const it of page) flatItems.push(it)
 
   const headerMatch = /Week Update:\s*([\d]{1,2}\s+\w+\.?\s+\d{4})\s*(?:[–\-—]|to)\s*([\d]{1,2}\s+\w+\.?\s+\d{4})/i.exec(text)
   if (!headerMatch) {
@@ -198,9 +278,15 @@ export async function extractEdition(
     throw new Error('Could not locate one or more expected section headings in the PDF body.')
   }
 
-  const execSummary = body.slice(0, idxExecEnd)
-    .replace(/^Executive Summary\s*/, '').trim()
-    .split('\n\n').map((p) => p.trim()).filter(Boolean).join('<br><br>')
+  // Reconstruct the Executive Summary's real paragraph breaks (Global /
+  // Asia-Pacific / Malaysia / etc., one per topic) from line Y-coordinates —
+  // the merged `text` above has none. Fall back to the flattened text as a
+  // single paragraph if the PDF's layout doesn't match the expected pattern
+  // (e.g. a non-standard template) rather than failing the whole upload.
+  const execParas = findParagraphs(flatItems, 'Executive Summary', 'Speed Read')
+  const execSummary = execParas && execParas.length
+    ? execParas.join('<br><br>')
+    : body.slice(0, idxExecEnd).replace(/^Executive Summary\s*/, '').trim()
 
   const speedReadRaw = body.slice(idxExecEnd, idxGlobal)
   const speedRead: string[] = []
