@@ -6,6 +6,7 @@ import { viewModel, weekOf, tokens, isoWeek } from './viewmodel'
 import { ask } from './ask'
 import { VOICES, synthesise } from './tts'
 import { exportDocx, exportPdf } from './export'
+import { extractEdition } from './pdfExtract'
 // The original static/index.html frontend, imported verbatim as a raw
 // string at build time and served unchanged — see src/frontend.html.
 // @ts-ignore - vite raw import
@@ -91,38 +92,6 @@ function randId(prefix: string, len = 10): string {
   return prefix + hex
 }
 
-// Week/date auto-derivation for PDF-only uploads. The published week number
-// always equals the ISO week of the edition's date (see weekOf/isoWeek in
-// viewmodel.ts — "31 Aug 2026 to 4 Sept 2026" carries date 2026-09-04, ISO
-// week 36). Anchoring on today's ISO week keeps a fresh PDF upload in sync
-// with that same convention without asking the admin to enter it by hand.
-const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
-
-function fmtDay(d: Date): string {
-  return `${d.getUTCDate()} ${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCFullYear()}`
-}
-
-function nextEditionInfo(editions: Edition[]): { id: string; week: number; date: string; label: string } {
-  const today = new Date()
-  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
-  const week = isoWeek(todayUtc)
-
-  // Monday..Friday of the current ISO week, for the published label.
-  const dayNum = (todayUtc.getUTCDay() + 6) % 7 // 0 = Monday
-  const monday = new Date(todayUtc); monday.setUTCDate(todayUtc.getUTCDate() - dayNum)
-  const friday = new Date(monday); friday.setUTCDate(monday.getUTCDate() + 4)
-
-  const date = todayUtc.toISOString().slice(0, 10)
-  const label = `${fmtDay(monday)} to ${fmtDay(friday)}`
-  // Id is always this week's ISO number. If an edition for this week
-  // already exists (e.g. re-uploading a corrected PDF the same week),
-  // upload-pdf naturally updates it in place rather than creating a
-  // duplicate — same behaviour as before, just auto-derived instead of
-  // typed in.
-  const id = `W${week}`
-  return { id, week, date, label }
-}
-
 // ------------------------------------------------------------------ frontend
 app.get('/', (c) => c.html(frontendHtml as string))
 
@@ -141,15 +110,6 @@ app.get('/api/editions', async (c) => {
   return c.json(out)
 })
 
-// Preview what the next edition's week/date will be, so the "Add Report"
-// modal can show it before upload without creating anything yet. Must be
-// registered before the /:id route below, or Hono matches "next" as an id.
-app.get('/api/edition/next', async (c) => {
-  const editions = await loadEditions(c.env.DB)
-  const next = nextEditionInfo(editions)
-  return c.json(next)
-})
-
 app.get('/api/edition/:id', async (c) => {
   const db = c.env.DB
   const editions = await loadEditions(db)
@@ -165,36 +125,54 @@ app.post('/api/edition/upload-pdf', async (c) => {
   const form = await c.req.formData()
   const file = form.get('pdf') as File | null
   const db = c.env.DB
-  const editions = await loadEditions(db)
-
-  // Week and date are derived automatically from the existing editions
-  // (next sequential week, dated today) — the admin only supplies the PDF.
-  // An explicit week/date in the form (e.g. a manual correction) still wins.
-  const auto = nextEditionInfo(editions)
-  const weekNum = form.get('week') ? parseInt(form.get('week') as string, 10) : auto.week
-  const date = (form.get('date') as string | null) || auto.date
 
   if (!file || !file.name) return c.json({ ok: false, error: 'no pdf file in request' }, 400)
   if (!file.name.toLowerCase().endsWith('.pdf')) return c.json({ ok: false, error: 'file must be a .pdf' }, 400)
   if (file.size > MAX_PDF) return c.json({ ok: false, error: 'pdf exceeds 20 MB' }, 413)
 
-  const safe = file.name.replace(/[^A-Za-z0-9._-]/g, '_')
-  const eid = `W${weekNum}`
-  const stored = `pdf/${eid}-${date}-${safe}`
   const buf = await file.arrayBuffer()
-  await c.env.R2.put(stored, buf, { httpMetadata: { contentType: 'application/pdf' } })
 
-  const pdf: PdfMeta = { name: safe, url: `/pdf/${eid}-${date}-${safe}`, size: file.size, r2_key: stored }
-
-  const existing = await db.prepare('SELECT id FROM editions WHERE id = ?').bind(eid).first()
-  if (!existing) {
-    await db.prepare(upsertEditionSql()).bind(
-      eid, `Week ${weekNum}`, date, 'pdf', '', '[]', '', '[]', '[]', '[]', '', JSON.stringify(pdf),
-    ).run()
-  } else {
-    await db.prepare('UPDATE editions SET date = ?, pdf = ?, updated_at = datetime(\'now\') WHERE id = ?')
-      .bind(date, JSON.stringify(pdf), eid).run()
+  // Week and date are read from the PDF's own printed header ("Week
+  // Update: X - Y" / "Date: Z"), not the upload timestamp — this is what
+  // lets the admin backfill past editions and upload future ones out of
+  // order, instead of always landing on "this week".
+  const apiKey = c.env.OPENAI_API_KEY
+  if (!apiKey) {
+    return c.json({
+      ok: false,
+      error: 'Content extraction is not configured — set the OPENAI_API_KEY secret to enable PDF upload.',
+    }, 500)
   }
+  const baseUrl = c.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+
+  let extracted
+  try {
+    extracted = await extractEdition(buf, apiKey, baseUrl)
+  } catch (e) {
+    return c.json({ ok: false, error: `Could not extract report content: ${(e as Error).message}` }, 422)
+  }
+
+  const weekNum = isoWeek(new Date(extracted.date + 'T00:00:00Z'))
+  const eid = `W${weekNum}`
+  const safe = file.name.replace(/[^A-Za-z0-9._-]/g, '_')
+  const stored = `pdf/${eid}-${extracted.date}-${safe}`
+  await c.env.R2.put(stored, buf, { httpMetadata: { contentType: 'application/pdf' } })
+  const pdf: PdfMeta = { name: safe, url: `/pdf/${eid}-${extracted.date}-${safe}`, size: file.size, r2_key: stored }
+
+  await db.prepare(upsertEditionSql()).bind(
+    eid,
+    extracted.label,
+    extracted.date,
+    'pdf',
+    extracted.exec_summary,
+    JSON.stringify(extracted.speed_read),
+    extracted.structural,
+    JSON.stringify(extracted.pulse),
+    JSON.stringify(extracted.items),
+    JSON.stringify(extracted.watchlist),
+    extracted.beyond,
+    JSON.stringify(pdf),
+  ).run()
 
   const freshEditions = await loadEditions(db)
   const ed = freshEditions.find((e) => e.id === eid)!

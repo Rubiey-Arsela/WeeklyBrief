@@ -1601,9 +1601,8 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
    Expects these /api/ endpoints (Hono backend):
    GET  /api/editions              → list of editions
    GET  /api/edition/<id>          → single edition with sections + items
-   GET  /api/edition/next          → { id, week, date, label } for the next upload
    POST /api/edition/upload-pdf    → create/replace an edition from a PDF (admin, multipart/form-data)
-                                      week/date auto-derived server-side unless explicitly sent
+                                      week/date/content are extracted from the PDF's own text server-side
    PUT  /api/edition/<id>          → update an edition's date (admin)
    DEL  /api/edition/<id>          → delete edition (admin)
    POST /api/ask                   → { query } → { answer, sources[] }
@@ -2399,12 +2398,12 @@ function openModal(mode) {
     body.innerHTML = `
       <div class="feedback-field">
         <label>Week / Date</label>
-        <div class="auto-week-pill" id="autoWeekPill">Detecting next week…</div>
+        <div class="auto-week-pill" id="autoWeekPill">Detected automatically from the PDF's own header ("Week Update: ... / Date: ...") once you upload it.</div>
       </div>
       <div class="pdf-drop-zone" id="pdfDropZone" onclick="document.getElementById('pdfFileInput').click()">
         <div class="drop-icon">📄</div>
         <div class="drop-text">Drop a PDF report here or click to browse</div>
-        <div class="drop-hint">PDF up to 20 MB — week and date are filled in automatically</div>
+        <div class="drop-hint">PDF up to 20 MB — week, date and full report content are extracted automatically. Works for past or future editions, not just this week.</div>
         <input type="file" accept=".pdf" id="pdfFileInput" style="display:none;" onchange="handlePdfSelect(this)">
       </div>
       <div id="pdfFileInfo"></div>
@@ -2416,7 +2415,6 @@ function openModal(mode) {
     `;
     // Enable drag-and-drop on the PDF zone
     enablePdfDragDrop();
-    loadAutoWeekInfo();
   } else if (mode === 'manage') {
     title.textContent = 'Manage Reports';
     body.innerHTML = `<div class="admin-report-list" id="adminReportList">Loading…</div>`;
@@ -2439,7 +2437,7 @@ function openModal(mode) {
         <div class="pdf-drop-zone" id="editPdfDropZone" onclick="document.getElementById('editPdfFileInput').click()">
           <div class="drop-icon">📄</div>
           <div class="drop-text">Drop a new PDF here or click to browse</div>
-          <div class="drop-hint">Leave empty to keep the current PDF — only the date will change</div>
+          <div class="drop-hint">Leave empty to keep the current PDF and content. Uploading a new PDF re-extracts week, date and content from its own header — use the corrected file for the same week.</div>
           <input type="file" accept=".pdf" id="editPdfFileInput" style="display:none;" onchange="handleEditPdfSelect(this)">
         </div>
         <div id="editPdfFileInfo"></div>
@@ -2466,22 +2464,6 @@ function openModal(mode) {
 
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('active');
-}
-
-/* ---------- Auto week/date (PDF-only admin flow) ---------- */
-// Week and date are derived server-side from today's ISO week — the admin
-// never types them. This just previews that value in the modal before upload.
-async function loadAutoWeekInfo() {
-  const pill = document.getElementById('autoWeekPill');
-  if (!pill) return;
-  try {
-    const info = await (await fetch('/api/edition/next')).json();
-    pill.textContent = `Week ${info.week} · ${formatDate(info.date)}`;
-    pill.dataset.week = info.week;
-    pill.dataset.date = info.date;
-  } catch (e) {
-    pill.textContent = 'Could not detect the current week — it will still be set automatically on upload.';
-  }
 }
 
 /* ---------- PDF Upload (Add Report) ---------- */
@@ -2548,20 +2530,27 @@ async function addReport() {
   if (!selectedPdfFile) { alert('Please select a PDF file to upload.'); return; }
   const formData = new FormData();
   formData.append('pdf', selectedPdfFile);
-  // Week/date are derived server-side; nothing else to send.
+  // Week/date/content are all derived server-side from the PDF's own text.
 
+  const pill = document.getElementById('autoWeekPill');
   const progressEl = document.getElementById('pdfUploadProgress');
   const barEl = document.getElementById('pdfUploadBar');
   progressEl.classList.add('active');
-  barEl.style.width = '30%';
+  barEl.style.width = '20%';
+  if (pill) pill.textContent = 'Reading the PDF and extracting the report content — this can take up to a minute…';
+  barEl.style.transition = 'width 45s linear';
+  barEl.style.width = '90%';
 
   try {
     const res = await fetch('/api/edition/upload-pdf', {
       method: 'POST',
       body: formData
     });
-    if (!res.ok) throw new Error('Upload failed');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    barEl.style.transition = 'width 0.3s ease';
     barEl.style.width = '100%';
+    if (pill) pill.textContent = `Detected Week ${data.week} · ${formatDate(data.date)}`;
     setTimeout(() => {
       closeModal();
       selectedPdfFile = null;
@@ -2569,8 +2558,10 @@ async function addReport() {
     }, 500);
   } catch (e) {
     progressEl.classList.remove('active');
+    barEl.style.transition = 'width 0.3s ease';
     barEl.style.width = '0%';
-    alert('Failed to upload PDF. Please try again.');
+    if (pill) pill.textContent = "Detected automatically from the PDF's own header (\"Week Update: ... / Date: ...\") once you upload it.";
+    alert('Failed to upload PDF: ' + (e.message || 'please try again.'));
   }
 }
 
@@ -2654,17 +2645,19 @@ async function saveEdit(editionId) {
   const date = document.getElementById('editDate').value;
   try {
     if (selectedEditPdfFile) {
-      // Replacing the PDF: same upload endpoint, but week is forced to this
-      // edition's existing week so it updates in place instead of creating
-      // a new one, and the chosen date is honoured explicitly.
-      const week = editionId.replace(/^W/, '');
+      // Replacing the PDF: week, date and all report content are
+      // re-extracted from the new PDF's own header/text. If the new file
+      // is for the same week, this updates the existing edition in place;
+      // if it's a different week's PDF, a different edition is
+      // created/updated instead — same "id = W<week from PDF>" convention
+      // as a fresh upload.
       const formData = new FormData();
-      formData.append('week', week);
-      formData.append('date', date);
       formData.append('pdf', selectedEditPdfFile);
-      await fetch('/api/edition/upload-pdf', { method: 'POST', body: formData });
+      const res = await fetch('/api/edition/upload-pdf', { method: 'POST', body: formData });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
     } else {
-      // Date-only correction, PDF untouched.
+      // Date-only correction, PDF and content untouched.
       await fetch(`/api/edition/${editionId}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
@@ -2675,7 +2668,7 @@ async function saveEdit(editionId) {
     closeModal();
     loadEdition('latest');
   } catch (e) {
-    alert('Failed to save changes.');
+    alert('Failed to save changes: ' + (e.message || 'please try again.'));
   }
 }
 
