@@ -99,14 +99,67 @@ export function buildSections(ed: Edition): ViewSection[] {
   return order.map((s) => ({ title: s, items: groups[s] }))
 }
 
-export function buildIndicators(corpus: Corpus, ed: Edition): PulseGroup[] {
-  const seriesByLabel: Record<string, Corpus['indicators'][number]> = {}
-  for (const i of corpus.indicators || []) seriesByLabel[i.label] = i
+// Words that carry no identifying signal for matching a PDF-printed
+// indicator label (e.g. "Brent Crude (18 Sept settlement)") against the
+// corpus's canonical label (e.g. "Brent Crude") — dates, units of time,
+// and generic descriptors that appear across many labels.
+const LABEL_STOP = new Set([
+  'the', 'a', 'an', 'of', 'per', 'at', 'on', 'in', 'for', 'and', 'or',
+  'pm', 'am', 'rate', 'price', 'prices', 'index', 'close', 'closing',
+  'settlement', 'sept', 'week', 'weekly', 'previous', 'note', 'bnm', 'ftse',
+])
 
+function labelTokens(s: string): Set<string> {
+  return new Set(
+    (s || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .filter((w) => !LABEL_STOP.has(w))
+      .filter((w) => !/^\d+$/.test(w)),
+  )
+}
+
+// Find the corpus indicator series matching a PDF-printed label. PDF
+// wording drifts week to week (extra context in parentheses, reordered
+// words, synonyms), so this tries progressively looser strategies:
+// exact string, substring either direction, then token-overlap scoring
+// against the canonical label + its id — only returning a token-overlap
+// match when it's an unambiguous best match (strictly beats any other
+// candidate), so a weak/ambiguous signal is left unmatched rather than
+// risk pairing the wrong series.
+function findIndicatorSeries(corpus: Corpus, label: string): Corpus['indicators'][number] | undefined {
+  const list = corpus.indicators || []
+  const exact = list.find((i) => i.label === label)
+  if (exact) return exact
+
+  const low = label.toLowerCase()
+  const sub = list.find((i) => {
+    const l2 = i.label.toLowerCase()
+    return low.includes(l2) || l2.includes(low)
+  })
+  if (sub) return sub
+
+  const rowTokens = labelTokens(label)
+  if (rowTokens.size === 0) return undefined
+  let best: Corpus['indicators'][number] | undefined
+  let bestScore = 0
+  let runnerUp = 0
+  for (const ind of list) {
+    const indTokens = labelTokens(ind.label + ' ' + ind.id.replace(/_/g, ' '))
+    let overlap = 0
+    for (const t of rowTokens) if (indTokens.has(t)) overlap++
+    if (overlap > bestScore) { runnerUp = bestScore; bestScore = overlap; best = ind } else if (overlap > runnerUp) runnerUp = overlap
+  }
+  return bestScore > 0 && bestScore > runnerUp ? best : undefined
+}
+
+export function buildIndicators(corpus: Corpus, ed: Edition): PulseGroup[] {
   const rows: PulseGroup['items'] = []
   for (const row of ed.pulse || []) {
     const label = row.indicator || ''
-    const ind = seriesByLabel[label]
+    const ind = findIndicatorSeries(corpus, label)
     let history: number[] = []
     let change: number | null = null
     if (ind) {
