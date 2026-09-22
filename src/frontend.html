@@ -163,6 +163,32 @@ body {
   color: var(--navy-700);
 }
 .masthead-meta .sep { color: var(--slate-300); }
+.powered-by-arsela {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: var(--space-lg);
+  margin-left: var(--space-sm);
+  border-left: 1px solid var(--slate-200);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.powered-by-arsela .pba-label {
+  font-size: 0.625rem;
+  color: var(--slate-400);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.powered-by-arsela img {
+  height: 20px;
+  width: auto;
+  display: block;
+}
+@media (max-width: 720px) {
+  .powered-by-arsela { padding-left: var(--space-sm); margin-left: 0; border-left: none; }
+  .powered-by-arsela .pba-label { display: none; }
+}
 .edition-select {
   background: var(--navy-50);
   color: var(--navy-800);
@@ -229,6 +255,25 @@ body {
   background: var(--navy-500);
 }
 .admin-btn .icon { font-size: 0.875rem; }
+.admin-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+.admin-user .au-name {
+  font-size: 0.8125rem;
+  color: var(--slate-300);
+}
+.admin-user .au-name strong { color: var(--white); font-weight: 600; }
+.admin-user .au-signout {
+  font-size: 0.75rem;
+  color: var(--slate-400);
+  text-decoration: none;
+  border: 1px solid var(--navy-500);
+  padding: 5px 12px;
+  border-radius: 4px;
+}
+.admin-user .au-signout:hover { color: var(--white); border-color: var(--slate-400); }
 
 /* ---------- Tab Navigation ---------- */
 .tab-nav {
@@ -1390,6 +1435,160 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
 .admin-action-btn.delete { color: var(--impact-critical-fg); border-color: var(--impact-critical-bd); }
 .admin-action-btn.delete:hover { background: var(--impact-critical-bg); }
 
+/* ========================================================================
+   ONBOARDING TOUR — first-time-user wizard
+   ======================================================================== */
+.tour-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+}
+.tour-overlay.active { display: block; }
+.tour-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 30, 26, 0.55);
+}
+.tour-spotlight {
+  position: fixed;
+  border-radius: 8px;
+  box-shadow: 0 0 0 4px var(--navy-500), 0 0 0 9999px rgba(15, 30, 26, 0.55);
+  transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+  pointer-events: none;
+  z-index: 501;
+}
+.tour-card {
+  position: fixed;
+  z-index: 502;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  padding: var(--space-lg);
+  transition: top 0.25s ease, left 0.25s ease;
+}
+.tour-card.tour-center {
+  position: fixed;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%);
+  width: 400px;
+}
+.tour-step-count {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--navy-500);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.tour-card h4 {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--navy-800);
+  margin-bottom: 8px;
+}
+.tour-card p {
+  font-size: 0.8438rem;
+  color: var(--slate-600);
+  line-height: 1.55;
+  margin-bottom: var(--space-md);
+}
+.tour-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.tour-dots {
+  display: flex;
+  gap: 5px;
+}
+.tour-dots span {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--slate-300);
+}
+.tour-dots span.active { background: var(--navy-600); width: 16px; border-radius: 3px; }
+.tour-actions { display: flex; gap: var(--space-sm); }
+.tour-btn {
+  padding: 7px 16px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--slate-300);
+  background: var(--white);
+  color: var(--slate-600);
+}
+.tour-btn.primary {
+  background: var(--navy-700);
+  border-color: var(--navy-700);
+  color: var(--white);
+}
+.tour-btn.primary:hover { background: var(--navy-600); }
+.tour-btn.text {
+  border: none;
+  background: none;
+  color: var(--slate-400);
+  padding: 7px 4px;
+}
+.tour-btn.text:hover { color: var(--slate-600); }
+.tour-welcome-logo {
+  height: 32px;
+  width: auto;
+  margin-bottom: var(--space-md);
+}
+
+/* ========================================================================
+   TEXT HIGHLIGHTER
+   ======================================================================== */
+.report-item-body mark.hl-yellow { background: #fef08a; color: inherit; }
+.report-item-body mark.hl-green  { background: #bbf7d0; color: inherit; }
+.report-item-body mark.hl-pink   { background: #fbcfe8; color: inherit; }
+.report-item-body mark.hl-blue   { background: #bfdbfe; color: inherit; }
+.report-item-body mark.hl-active { outline: 2px solid var(--navy-600); outline-offset: 1px; }
+
+.hl-toolbar {
+  display: none;
+  position: fixed;
+  z-index: 300;
+  background: var(--navy-900);
+  border-radius: 6px;
+  padding: 6px;
+  gap: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  align-items: center;
+}
+.hl-toolbar.active { display: flex; }
+.hl-toolbar .hl-swatch {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  padding: 0;
+}
+.hl-toolbar .hl-swatch:hover { border-color: rgba(255,255,255,0.6); }
+.hl-toolbar .hl-swatch.yellow { background: #fde047; }
+.hl-toolbar .hl-swatch.green  { background: #4ade80; }
+.hl-toolbar .hl-swatch.pink   { background: #f9a8d4; }
+.hl-toolbar .hl-swatch.blue   { background: #93c5fd; }
+.hl-toolbar .hl-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.2); margin: 0 2px; }
+.hl-toolbar .hl-remove {
+  background: none;
+  border: none;
+  color: #fca5a5;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.hl-toolbar .hl-remove:hover { background: rgba(255,255,255,0.1); }
+
+.ra-highlight-btn.active { background: var(--navy-700); color: var(--white); }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 768px) {
   .masthead-inner { flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
@@ -1429,6 +1628,10 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
               onchange="loadEdition(this.value)" title="Switch edition"></select>
       <span class="sep">·</span>
       <span>Malaysia Sector Intelligence</span>
+      <a class="powered-by-arsela no-print" href="https://arselaresources.com" target="_blank" rel="noopener" title="Powered by Arsela Resources">
+        <span class="pba-label">Powered by</span>
+        <img src="/static/logo-arsela.png" alt="Arsela Resources">
+      </a>
     </div>
   </div>
 </header>
@@ -1443,7 +1646,11 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
       <button class="admin-btn" onclick="openModal('manage')">
         <span class="icon">⚙</span> Manage Reports
       </button>
+      <button class="admin-btn" onclick="startTour(true)" title="Replay the introduction tour">
+        <span class="icon">?</span> Help &amp; Tour
+      </button>
     </div>
+    <div class="admin-user" id="adminUser"><!-- filled by JS if signed in --></div>
   </div>
 </div>
 
@@ -1558,6 +1765,8 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
       </div>
       <button class="ra-note-btn" id="noteModeBtn" onclick="toggleNoteMode()"
               title="Drop a sticky note anywhere on the report">&#128221; Add note</button>
+      <button class="ra-note-btn ra-highlight-btn" id="highlightModeBtn" onclick="toggleHighlightMode()"
+              title="Select text in the report to highlight it">&#128998; Highlight</button>
       <div class="export-menu">
         <button class="ra-export-btn" onclick="toggleExportMenu(event)">Export &#9662;</button>
         <div class="export-dropdown" id="exportDropdown">
@@ -1634,6 +1843,23 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
       <!-- Filled by JS -->
     </div>
   </div>
+</div>
+
+<!-- ======================== ONBOARDING TOUR ======================== -->
+<div class="tour-overlay no-print" id="tourOverlay">
+  <div class="tour-dim" onclick="skipTour()"></div>
+  <div class="tour-spotlight" id="tourSpotlight" style="display:none;"></div>
+  <div class="tour-card" id="tourCard"><!-- Filled by JS --></div>
+</div>
+
+<!-- ======================== HIGHLIGHT COLOUR TOOLBAR ======================== -->
+<div class="hl-toolbar no-print" id="hlToolbar">
+  <button class="hl-swatch yellow" title="Yellow" onclick="applyHighlight('yellow')"></button>
+  <button class="hl-swatch green"  title="Green"  onclick="applyHighlight('green')"></button>
+  <button class="hl-swatch pink"   title="Pink"   onclick="applyHighlight('pink')"></button>
+  <button class="hl-swatch blue"   title="Blue"   onclick="applyHighlight('blue')"></button>
+  <div class="hl-sep" id="hlEditSep" style="display:none;"></div>
+  <button class="hl-remove" id="hlRemoveBtn" style="display:none;" onclick="removeActiveHighlight()">Remove</button>
 </div>
 
 <script>
@@ -1729,6 +1955,8 @@ function renderEdition() {
   renderPulseTable();
   // Sticky notes
   loadNotes();
+  // Highlights
+  loadHighlights();
 }
 
 /* ---------- Sector Filter ---------- */
@@ -1783,19 +2011,19 @@ function renderReport() {
   if (reportView === 'table')  { body.innerHTML = renderTableView(sections);  renderNotes(); return; }
   if (reportView === 'visual') { body.innerHTML = renderVisualView(sections); renderNotes(); return; }
 
-  body.innerHTML = sections.map(sec => `
+  body.innerHTML = sections.map((sec, si) => `
     <div class="report-section">
       <div class="report-section-title">
         ${sec.title}
         <span class="section-count">${sec.items.length} item${sec.items.length !== 1 ? 's' : ''}</span>
       </div>
-      ${sec.items.map(item => `
+      ${sec.items.map((item, ii) => `
         <div class="report-item">
           <div class="report-item-header">
             <div class="report-item-title">${item.title}</div>
             ${item.impact ? `<span class="impact-badge ${item.impact}">${item.impact_label || item.impact}</span>` : ''}
           </div>
-          <div class="report-item-body">${item.body}</div>
+          <div class="report-item-body" data-item-key="${itemKey(si, ii)}">${item.body}</div>
           ${item.source ? `<div class="report-item-source">Source: ${item.source}</div>` : ''}
         </div>
       `).join('')}
@@ -1803,6 +2031,19 @@ function renderReport() {
   `).join('');
 
   renderNotes();
+  applyStoredHighlights();
+}
+
+// Stable per-item identifier used to anchor highlights: the section index
+// and item index within the *unfiltered* section list, so a highlight
+// survives switching the sector filter (which only changes which
+// sections render, not their underlying index).
+function itemKey(sectionIdx, itemIdx) {
+  const all = currentEdition.sections;
+  const filtered = reportFilter === 'all' ? all : all.filter((s, i) => i === reportFilter);
+  const sec = filtered[sectionIdx];
+  const realSecIdx = all.indexOf(sec);
+  return `s${realSecIdx}i${itemIdx}`;
 }
 
 function renderPdfAttachment() {
@@ -2108,6 +2349,108 @@ async function loadVoices() {
     sel.value = ttsVoice;
     sel.onchange = () => { ttsVoice = sel.value; if (isReading) restartReading(); };
   } catch (e) { sel.innerHTML = '<option>Charon</option>'; }
+}
+
+async function loadCurrentUser() {
+  const el = document.getElementById('adminUser');
+  if (!el) return;
+  try {
+    const me = await (await fetch('/api/me')).json();
+    if (me.configured && me.user) {
+      el.innerHTML = `<span class="au-name">Signed in as <strong>${esc(me.user.name || me.user.email)}</strong></span><a class="au-signout" href="/auth/logout">Sign out</a>`;
+    } else {
+      el.innerHTML = '';
+    }
+  } catch (e) { el.innerHTML = ''; }
+}
+
+/* ---------- Onboarding Tour ---------- */
+const TOUR_STEPS = [
+  { center: true, title: 'Welcome to the Maida Vale Weekly Brief', body: 'A quick tour of the tabs and tools before you dive in — this takes under a minute.' },
+  { sel: '.tab-nav', title: 'Five views of the same week', body: 'Executive Summary for a fast read, Report for full detail, Ask for quick Q&A, Trends and Indicators for the numbers.' },
+  { sel: '#speedReadCard', title: 'Speed Read', body: '10 headline facts from this week\\'s brief, for a 30-second scan before a meeting.' },
+  { sel: '#noteModeBtn', title: 'Sticky notes', body: 'Click "Add note", then click anywhere on the Report tab to drop a note for your team.' },
+  { sel: '#highlightModeBtn', title: 'Highlighter', body: 'Click "Highlight", then select any text in the Report tab to mark it up in a colour of your choice. Click an existing highlight to change its colour or remove it.' },
+  { sel: '.ra-export-btn', title: 'Export', body: 'Download the current edition as a Word document or PDF, or use your browser\\'s Print to save a PDF copy.' },
+  { center: true, title: 'You\\'re all set', body: 'Replay this tour anytime from the "Help & Tour" button in the top bar.' },
+];
+let tourStep = 0;
+
+function maybeStartTourForNewUser() {
+  if (!localStorage.getItem('mvb_tour_seen')) {
+    setTimeout(() => startTour(false), 600);
+  }
+}
+
+function startTour(manual) {
+  tourStep = 0;
+  document.getElementById('tourOverlay').classList.add('active');
+  renderTourStep();
+  if (manual) { /* replay requested explicitly — no localStorage change needed */ }
+}
+
+function skipTour() {
+  document.getElementById('tourOverlay').classList.remove('active');
+  document.getElementById('tourSpotlight').style.display = 'none';
+  localStorage.setItem('mvb_tour_seen', '1');
+}
+
+function tourNext() {
+  tourStep++;
+  if (tourStep >= TOUR_STEPS.length) { skipTour(); return; }
+  renderTourStep();
+}
+
+function tourPrev() {
+  if (tourStep === 0) return;
+  tourStep--;
+  renderTourStep();
+}
+
+function renderTourStep() {
+  const step = TOUR_STEPS[tourStep];
+  const card = document.getElementById('tourCard');
+  const spotlight = document.getElementById('tourSpotlight');
+  const dots = TOUR_STEPS.map((_, i) => `<span class="${i === tourStep ? 'active' : ''}"></span>`).join('');
+
+  card.className = 'tour-card' + (step.center ? ' tour-center' : '');
+  card.innerHTML = `
+    <div class="tour-step-count">Step ${tourStep + 1} of ${TOUR_STEPS.length}</div>
+    <h4>${step.title}</h4>
+    <p>${step.body}</p>
+    <div class="tour-card-foot">
+      <div class="tour-dots">${dots}</div>
+      <div class="tour-actions">
+        <button class="tour-btn text" onclick="skipTour()">Skip</button>
+        ${tourStep > 0 ? '<button class="tour-btn" onclick="tourPrev()">Back</button>' : ''}
+        <button class="tour-btn primary" onclick="tourNext()">${tourStep === TOUR_STEPS.length - 1 ? 'Done' : 'Next'}</button>
+      </div>
+    </div>`;
+
+  if (step.center || !step.sel) {
+    spotlight.style.display = 'none';
+    return;
+  }
+  const target = document.querySelector(step.sel);
+  if (!target) {
+    // Target not on screen (e.g. different tab) — fall back to a centred card.
+    card.classList.add('tour-center');
+    spotlight.style.display = 'none';
+    return;
+  }
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  requestAnimationFrame(() => {
+    const r = target.getBoundingClientRect();
+    spotlight.style.display = 'block';
+    spotlight.style.top = (r.top - 6) + 'px';
+    spotlight.style.left = (r.left - 6) + 'px';
+    spotlight.style.width = (r.width + 12) + 'px';
+    spotlight.style.height = (r.height + 12) + 'px';
+    const cardTop = Math.min(window.innerHeight - 200, r.bottom + 16);
+    const cardLeft = Math.min(Math.max(16, r.left), window.innerWidth - 336);
+    card.style.top = cardTop + 'px';
+    card.style.left = cardLeft + 'px';
+  });
 }
 
 function setSpeed(v) {
@@ -2443,6 +2786,181 @@ async function replyNote(id, input) {
   renderNotes();
 }
 
+/* ---------- Text Highlighter ----------
+   Users select text inside a .report-item-body, a small colour toolbar
+   appears, and picking a colour wraps the selection in <mark class="hl-*">.
+   Persisted server-side as a (item_key, start_offset, end_offset) range
+   over the item's *plain* (tag-stripped) text, so it survives reloads and
+   re-renders without depending on DOM node identity. Clicking an existing
+   highlight re-opens the toolbar with a Remove option instead. */
+let highlights = [];
+let highlightMode = false;
+let activeHighlightId = null;
+let pendingSelection = null; // { itemKey, start, end, text } while toolbar is open for a NEW selection
+
+function toggleHighlightMode() {
+  highlightMode = !highlightMode;
+  document.getElementById('highlightModeBtn').classList.toggle('active', highlightMode);
+  document.body.classList.toggle('highlight-mode', highlightMode);
+  hideHlToolbar();
+  setStatus(highlightMode ? 'Select any text in the report to highlight it.' : '');
+}
+
+async function loadHighlights() {
+  if (!currentEdition) return;
+  try {
+    highlights = await (await fetch(`/api/highlights?edition=${encodeURIComponent(currentEdition.id)}`)).json();
+  } catch (e) { highlights = []; }
+  applyStoredHighlights();
+}
+
+// Plain-text offset -> DOM Range within a container, walking text nodes.
+// The stored offsets are always taken against the *same* rendering (the
+// item body's stripped text never changes between saves), so a simple
+// text-node walk is sufficient and avoids needing to diff HTML structure.
+function rangeFromOffsets(container, start, end) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let pos = 0, startNode, startOff, endNode, endOff;
+  let node;
+  while ((node = walker.nextNode())) {
+    const len = node.textContent.length;
+    if (startNode === undefined && pos + len >= start) { startNode = node; startOff = start - pos; }
+    if (pos + len >= end) { endNode = node; endOff = end - pos; break; }
+    pos += len;
+  }
+  if (!startNode || !endNode) return null;
+  const r = document.createRange();
+  r.setStart(startNode, Math.max(0, startOff));
+  r.setEnd(endNode, Math.max(0, endOff));
+  return r;
+}
+
+function applyStoredHighlights() {
+  document.querySelectorAll('.report-item-body[data-item-key]').forEach(el => {
+    const key = el.dataset.itemKey;
+    const forItem = highlights.filter(h => h.item_key === key).sort((a, b) => b.start_offset - a.start_offset);
+    // Longest offsets first so earlier wraps don't shift later offsets
+    // before they're consumed.
+    forItem.forEach(h => {
+      try {
+        const r = rangeFromOffsets(el, h.start_offset, h.end_offset);
+        if (!r || r.collapsed) return;
+        const mark = document.createElement('mark');
+        mark.className = `hl-${h.colour || 'yellow'}`;
+        mark.dataset.hlId = h.id;
+        r.surroundContents(mark);
+      } catch (e) { /* range crossed element boundaries oddly — skip */ }
+    });
+  });
+}
+
+function plainTextOffset(container, node, nodeOffset) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let pos = 0, found;
+  let n;
+  while ((n = walker.nextNode())) {
+    if (n === node) { found = pos + nodeOffset; break; }
+    pos += n.textContent.length;
+  }
+  return found;
+}
+
+function handleReportSelection(ev) {
+  if (!highlightMode) return;
+  // Clicking an existing highlight re-opens the toolbar in "edit" mode.
+  if (ev.target.tagName === 'MARK' && ev.target.dataset.hlId) {
+    showHlToolbarForExisting(ev.target, ev.clientX, ev.clientY);
+    return;
+  }
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) { hideHlToolbar(); return; }
+  const range = sel.getRangeAt(0);
+  const container = range.commonAncestorContainer.nodeType === 1
+    ? range.commonAncestorContainer.closest('.report-item-body[data-item-key]')
+    : range.commonAncestorContainer.parentElement?.closest('.report-item-body[data-item-key]');
+  if (!container) { hideHlToolbar(); return; }
+
+  const start = plainTextOffset(container, range.startContainer, range.startOffset);
+  const end = plainTextOffset(container, range.endContainer, range.endOffset);
+  if (start === undefined || end === undefined || end <= start) { hideHlToolbar(); return; }
+
+  pendingSelection = { itemKey: container.dataset.itemKey, start, end, text: sel.toString().slice(0, 500) };
+  activeHighlightId = null;
+  const rect = range.getBoundingClientRect();
+  showHlToolbar(rect, false);
+}
+
+function showHlToolbar(rect, isEdit) {
+  const bar = document.getElementById('hlToolbar');
+  bar.classList.add('active');
+  const top = Math.max(8, rect.top - 44);
+  const left = Math.min(Math.max(8, rect.left), window.innerWidth - 180);
+  bar.style.top = top + 'px';
+  bar.style.left = left + 'px';
+  document.getElementById('hlEditSep').style.display = isEdit ? '' : 'none';
+  document.getElementById('hlRemoveBtn').style.display = isEdit ? '' : 'none';
+}
+
+function showHlToolbarForExisting(markEl, clientX, clientY) {
+  document.querySelectorAll('mark.hl-active').forEach(m => m.classList.remove('hl-active'));
+  markEl.classList.add('hl-active');
+  activeHighlightId = markEl.dataset.hlId;
+  pendingSelection = null;
+  const rect = markEl.getBoundingClientRect();
+  showHlToolbar(rect, true);
+}
+
+function hideHlToolbar() {
+  document.getElementById('hlToolbar').classList.remove('active');
+  document.querySelectorAll('mark.hl-active').forEach(m => m.classList.remove('hl-active'));
+  pendingSelection = null;
+  activeHighlightId = null;
+}
+
+async function applyHighlight(colour) {
+  if (activeHighlightId) {
+    // Recolour an existing highlight.
+    await fetch(`/api/highlights/${activeHighlightId}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ colour })
+    }).catch(() => {});
+    const h = highlights.find(x => x.id === activeHighlightId);
+    if (h) h.colour = colour;
+    hideHlToolbar();
+    renderReport();
+    return;
+  }
+  if (!pendingSelection) return;
+  const author = localStorage.getItem('briefAuthor') || 'Anonymous';
+  const body = {
+    edition: currentEdition.id,
+    item_key: pendingSelection.itemKey,
+    start_offset: pendingSelection.start,
+    end_offset: pendingSelection.end,
+    colour,
+    text_snippet: pendingSelection.text,
+    author,
+  };
+  try {
+    const h = await (await fetch('/api/highlights', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    })).json();
+    highlights.push(h);
+  } catch (e) { /* keep UI responsive even if the save fails */ }
+  window.getSelection().removeAllRanges();
+  hideHlToolbar();
+  renderReport();
+}
+
+async function removeActiveHighlight() {
+  if (!activeHighlightId) return;
+  await fetch(`/api/highlights/${activeHighlightId}`, { method: 'DELETE' }).catch(() => {});
+  highlights = highlights.filter(h => h.id !== activeHighlightId);
+  hideHlToolbar();
+  renderReport();
+}
+
 /* ---------- Admin Modal ---------- */
 function openModal(mode) {
   const overlay = document.getElementById('modalOverlay');
@@ -2770,11 +3288,19 @@ function renderPlaceholder() {
 /* ---------- Init ---------- */
 document.addEventListener('DOMContentLoaded', () => {
   loadVoices();
+  loadCurrentUser();
   loadEdition('latest');
   const body = document.getElementById('reportBody');
-  if (body) body.addEventListener('click', placeNoteAt);
+  if (body) {
+    body.addEventListener('click', placeNoteAt);
+    body.addEventListener('mouseup', handleReportSelection);
+  }
   let rt;
   window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderNotes, 200); });
+  document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('#hlToolbar') && !e.target.closest('mark')) hideHlToolbar();
+  });
+  maybeStartTourForNewUser();
 });
 
 // Close modal on overlay click

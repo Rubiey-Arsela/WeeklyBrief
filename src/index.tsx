@@ -1,22 +1,115 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
-import type { AppEnv, Corpus, Edition, Note, PdfMeta } from './types'
+import type { AppEnv, Corpus, Edition, Note, Highlight, PdfMeta } from './types'
 import { viewModel, weekOf, tokens, isoWeek } from './viewmodel'
 import { ask } from './ask'
 import { VOICES, synthesise } from './tts'
 import { exportDocx, exportPdf } from './export'
 import { extractEdition } from './pdfExtract'
+import {
+  isAuthConfigured, getCookie, buildSetCookie, buildClearCookie, verifySession,
+  signSession, buildAuthorizeUrl, exchangeCodeForToken, fetchMicrosoftProfile,
+  domainAllowed, SESSION_COOKIE, STATE_COOKIE,
+} from './auth'
 // The original static/index.html frontend, imported verbatim as a raw
 // string at build time and served unchanged — see src/frontend.html.
 // @ts-ignore - vite raw import
 import frontendHtml from './frontend.html?raw'
+// @ts-ignore - vite raw import
+import loginHtml from './login.html?raw'
 
 const app = new Hono<AppEnv>()
 
 app.use('/api/*', cors())
 app.use('/static/*', serveStatic({ root: './public' }))
 app.use('/favicon.ico', serveStatic({ path: './public/favicon.ico' }))
+
+// ------------------------------------------------------------------- auth
+// Login is only enforced once MS_CLIENT_ID + MS_CLIENT_SECRET secrets are
+// set (see src/auth.ts) — until then every route below is open, so the
+// app keeps working in the sandbox / before the Azure App Registration
+// exists. /auth/*, /login, and static assets are always reachable so the
+// login page itself can render and the OAuth callback can complete.
+app.use('*', async (c, next) => {
+  const path = new URL(c.req.url).pathname
+  const openPaths = path.startsWith('/auth/') || path === '/login' || path.startsWith('/static/') || path === '/favicon.ico'
+  if (openPaths || !isAuthConfigured(c.env)) return next()
+
+  const token = getCookie(c.req.raw, SESSION_COOKIE)
+  const user = token ? await verifySession(c.env, token) : null
+  if (!user) {
+    if (path.startsWith('/api/')) return c.json({ ok: false, error: 'authentication required' }, 401)
+    return c.redirect('/login')
+  }
+  c.set('user' as never, user as never)
+  return next()
+})
+
+app.get('/login', (c) => {
+  if (!isAuthConfigured(c.env)) {
+    return c.html((loginHtml as string).replace('</body>', '<script>if(!location.search.includes("error="))location.search="error=not_configured";</script></body>'))
+  }
+  return c.html(loginHtml as string)
+})
+
+app.get('/auth/login', async (c) => {
+  if (!isAuthConfigured(c.env)) return c.redirect('/login?error=not_configured')
+  const state = crypto.randomUUID()
+  const origin = new URL(c.req.url).origin
+  const url = buildAuthorizeUrl(c.env, origin, state)
+  c.header('Set-Cookie', buildSetCookie(STATE_COOKIE, state, 600))
+  return c.redirect(url)
+})
+
+app.get('/auth/callback', async (c) => {
+  const url = new URL(c.req.url)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const err = url.searchParams.get('error')
+  if (err) return c.redirect('/login?error=access_denied')
+
+  const expectedState = getCookie(c.req.raw, STATE_COOKIE)
+  if (!code || !state || !expectedState || state !== expectedState) {
+    return c.redirect('/login?error=auth_failed')
+  }
+
+  try {
+    const tokenResp = await exchangeCodeForToken(c.env, url.origin, code)
+    const profile = await fetchMicrosoftProfile(tokenResp.access_token)
+    if (!profile.email) throw new Error('Microsoft account has no email/UPN')
+    if (!domainAllowed(c.env, profile.email)) return c.redirect('/login?error=domain_not_allowed')
+
+    const now = new Date().toISOString()
+    await c.env.DB.prepare(
+      `INSERT INTO users (id, email, name, first_login, last_login, login_count)
+       VALUES (?,?,?,?,?,1)
+       ON CONFLICT(id) DO UPDATE SET
+         email=excluded.email, name=excluded.name, last_login=excluded.last_login,
+         login_count = users.login_count + 1`,
+    ).bind(profile.id, profile.email, profile.name, now, now).run()
+
+    const session = await signSession(c.env, { sub: profile.id, email: profile.email, name: profile.name })
+    c.header('Set-Cookie', buildSetCookie(SESSION_COOKIE, session, 12 * 60 * 60))
+    c.header('Set-Cookie', buildClearCookie(STATE_COOKIE), { append: true })
+    return c.redirect('/')
+  } catch (e) {
+    console.error('OAuth callback failed:', (e as Error).message)
+    return c.redirect('/login?error=auth_failed')
+  }
+})
+
+app.get('/auth/logout', (c) => {
+  c.header('Set-Cookie', buildClearCookie(SESSION_COOKIE))
+  return c.redirect('/login')
+})
+
+app.get('/api/me', async (c) => {
+  if (!isAuthConfigured(c.env)) return c.json({ ok: true, configured: false, user: null })
+  const token = getCookie(c.req.raw, SESSION_COOKIE)
+  const user = token ? await verifySession(c.env, token) : null
+  return c.json({ ok: true, configured: true, user: user ? { email: user.email, name: user.name } : null })
+})
 
 const MAX_PDF = 20 * 1024 * 1024
 
@@ -83,6 +176,21 @@ function rowToNote(row: any): Note {
     created: row.created,
     updated: row.updated,
     replies: JSON.parse(row.replies || '[]'),
+  }
+}
+
+function rowToHighlight(row: any): Highlight {
+  return {
+    id: row.id,
+    edition: row.edition,
+    item_key: row.item_key,
+    start_offset: row.start_offset,
+    end_offset: row.end_offset,
+    colour: row.colour || 'yellow',
+    text_snippet: row.text_snippet || '',
+    author: row.author || 'Anonymous',
+    created: row.created,
+    updated: row.updated,
   }
 }
 
@@ -312,6 +420,69 @@ app.put('/api/notes/:id', async (c) => {
 app.delete('/api/notes/:id', async (c) => {
   const id = c.req.param('id')
   const res = await c.env.DB.prepare('DELETE FROM notes WHERE id = ?').bind(id).run()
+  if (!res.meta.changes) return c.notFound()
+  return c.json({ ok: true, deleted: id })
+})
+
+// ------------------------------------------------------------------ highlights
+app.get('/api/highlights', async (c) => {
+  const edition = c.req.query('edition')
+  const db = c.env.DB
+  let query = 'SELECT * FROM highlights'
+  const binds: any[] = []
+  if (edition) { query += ' WHERE edition = ?'; binds.push(edition) }
+  query += ' ORDER BY created ASC'
+  const { results } = await db.prepare(query).bind(...binds).all()
+  return c.json((results || []).map(rowToHighlight))
+})
+
+app.post('/api/highlights', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  if (!body.edition || !body.item_key) {
+    return c.json({ ok: false, error: 'edition and item_key are required' }, 400)
+  }
+  const startOff = parseInt(body.start_offset, 10)
+  const endOff = parseInt(body.end_offset, 10)
+  if (!Number.isFinite(startOff) || !Number.isFinite(endOff) || endOff <= startOff) {
+    return c.json({ ok: false, error: 'invalid start_offset/end_offset' }, 400)
+  }
+  const now = new Date().toISOString()
+  const h: Highlight = {
+    id: randId('h'),
+    edition: body.edition,
+    item_key: body.item_key,
+    start_offset: startOff,
+    end_offset: endOff,
+    colour: (body.colour || 'yellow').slice(0, 20),
+    text_snippet: (body.text_snippet || '').slice(0, 500),
+    author: (body.author || 'Anonymous').slice(0, 60),
+    created: now,
+    updated: now,
+  }
+  await c.env.DB.prepare(
+    `INSERT INTO highlights (id, edition, item_key, start_offset, end_offset, colour, text_snippet, author, created, updated)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+  ).bind(h.id, h.edition, h.item_key, h.start_offset, h.end_offset, h.colour, h.text_snippet, h.author, h.created, h.updated).run()
+  return c.json(h)
+})
+
+app.put('/api/highlights/:id', async (c) => {
+  const id = c.req.param('id')
+  const db = c.env.DB
+  const row = await db.prepare('SELECT * FROM highlights WHERE id = ?').bind(id).first<any>()
+  if (!row) return c.notFound()
+  const h = rowToHighlight(row)
+  const body = await c.req.json().catch(() => ({}))
+  if ('colour' in body) h.colour = String(body.colour).slice(0, 20)
+  h.updated = new Date().toISOString()
+  await db.prepare('UPDATE highlights SET colour=?, updated=? WHERE id=?')
+    .bind(h.colour, h.updated, id).run()
+  return c.json(h)
+})
+
+app.delete('/api/highlights/:id', async (c) => {
+  const id = c.req.param('id')
+  const res = await c.env.DB.prepare('DELETE FROM highlights WHERE id = ?').bind(id).run()
   if (!res.meta.changes) return c.notFound()
   return c.json({ ok: true, deleted: id })
 })

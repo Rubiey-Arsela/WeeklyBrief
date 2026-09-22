@@ -7,6 +7,14 @@ export type Bindings = {
   GEMINI_API_KEY?: string
   OPENAI_API_KEY?: string
   OPENAI_BASE_URL?: string
+  // Microsoft Entra ID (Azure AD) sign-in — login is only enforced once
+  // MS_CLIENT_ID + MS_CLIENT_SECRET are both set. See src/auth.ts.
+  MS_CLIENT_ID?: string
+  MS_CLIENT_SECRET?: string
+  MS_TENANT_ID?: string
+  MS_REDIRECT_URI?: string
+  MS_ALLOWED_DOMAIN?: string
+  SESSION_SECRET?: string
 }
 
 export type AppEnv = { Bindings: Bindings }
@@ -181,4 +189,17 @@ export interface Note {
   created: string
   updated: string
   replies: { author: string; text: string; ts: string }[]
+}
+
+export interface Highlight {
+  id: string
+  edition: string
+  item_key: string
+  start_offset: number
+  end_offset: number
+  colour: string
+  text_snippet: string
+  author: string
+  created: string
+  updated: string
 }
