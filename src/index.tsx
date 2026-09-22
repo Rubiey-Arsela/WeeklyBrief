@@ -500,7 +500,7 @@ app.get('/audio/:name', async (c) => {
 app.post('/api/tts', async (c) => {
   const body = await c.req.json().catch(() => ({}))
   const text = (body.text || '').trim()
-  const voice = body.voice || 'Charon'
+  const voice = body.voice || 'Kore'
   if (!text) return c.json({ ok: false, error: 'no text' }, 400)
 
   const result = await synthesise(c.env.R2, c.env.GEMINI_API_KEY, text, voice)

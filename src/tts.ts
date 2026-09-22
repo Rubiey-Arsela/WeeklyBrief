@@ -74,17 +74,17 @@ export interface SynthesiseResult {
   error: string | null
 }
 
-// Generate narration via the Gemini TTS REST API and cache the mp3 in R2.
+// Generate narration via the Gemini TTS REST API and cache the wav in R2.
 export async function synthesise(
   r2: R2Bucket,
   apiKey: string | undefined,
   text: string,
-  voice = 'Charon',
+  voice = 'Kore',
 ): Promise<SynthesiseResult> {
   const spoken = spokenText(text)
   if (!spoken) return { key: '', error: 'nothing to read' }
   const clipped = spoken.slice(0, 4000)
-  const v = VOICE_IDS.has(voice) ? voice : 'Charon'
+  const v = VOICE_IDS.has(voice) ? voice : 'Kore'
   const key = await ttsCacheKey(clipped, v)
 
   const existing = await r2.head(key)
@@ -100,12 +100,10 @@ export async function synthesise(
     generationConfig: {
       responseModalities: ['AUDIO'],
       speechConfig: {
-        multiSpeakerVoiceConfig: {
-          speakerVoiceConfigs: [{
-            speaker: 'Speaker1',
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: v } },
-          }],
-        },
+        // Single-speaker narration uses voiceConfig directly — NOT
+        // multiSpeakerVoiceConfig, which the API rejects unless it is
+        // given exactly 2 speaker_voice_configs (400 INVALID_ARGUMENT).
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: v } },
       },
     },
   }

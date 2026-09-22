@@ -2333,18 +2333,25 @@ function miniSpark(points) {
   return `<polyline points="${coords.join(' ')}" fill="none" stroke="var(--navy-600)" stroke-width="1.5" />`;
 }
 
-/* ---------- Read Aloud — single natural voice, browser-native (no server, no key) ---------- */
-// Uses the Web Speech API (speechSynthesis) built into every modern browser —
-// no server round-trip, no API key, works instantly for every reader.
-// We pick ONE good native English voice automatically (preferring natural-sounding
-// en-GB/en-MY/en-AU voices, which read numbers and currency more the way a
-// Malaysian audience expects, over the more American-accented default) and never
-// expose a picker — so there's no "Charon" dropdown to confuse anyone.
+/* ---------- Read Aloud — one natural AI voice (Gemini TTS, server-side) ---------- */
+// Primary path: a single studio-quality voice ("Kore") generated server-side
+// via Gemini's TTS model — the same underlying voice technology behind
+// NotebookLM's Audio Overview. Audio is cached in R2, so re-reading a
+// section you've already heard is instant and free the second time.
+// Fallback path: if the server call ever fails (offline, quota, cold start
+// taking too long), we drop to the browser's own built-in voice for just
+// that one section, then carry on — so Read Aloud never breaks completely,
+// it just quietly downgrades for that one bit.
+const TTS_VOICE = 'Kore'; // firm, warm, professional — no picker, one voice only
 let ttsChunks = [];      // [{label, text}]
 let ttsIndex = 0;
 let ttsSpeed = 1;
 let ttsStop = false;
-let ttsUtterance = null;
+let ttsPlayer = null;      // HTMLAudioElement — used when the server voice plays
+let ttsUtterance = null;   // SpeechSynthesisUtterance — used only as a fallback
+let ttsPrefetch = new Map(); // idx -> Promise<url|null>, so the next section
+                              // generates in the background while the current
+                              // one is still playing.
 let pickedVoice = null;
 
 // Voices considered "natural" (not the old robotic sawtooth engines) and their
@@ -2493,9 +2500,10 @@ function renderTourStep() {
 function setSpeed(v) {
   ttsSpeed = parseFloat(v);
   document.getElementById('speedLabel').textContent = ttsSpeed.toFixed(2).replace(/0$/,'') + '\u00d7';
-  // Web Speech utterances can't change rate mid-sentence, so if we're
-  // reading, restart the current chunk at the new speed.
-  if (isReading && window.speechSynthesis) {
+  if (ttsPlayer) ttsPlayer.playbackRate = ttsSpeed; // server audio — live, no re-generation
+  if (isReading && !ttsPlayer && window.speechSynthesis) {
+    // Currently on the browser-voice fallback for this chunk — Web Speech
+    // can't change rate mid-utterance, so restart the chunk at the new speed.
     window.speechSynthesis.cancel();
     speakChunk(ttsIndex);
   }
@@ -2505,19 +2513,14 @@ function toggleReadAloud() { isReading ? stopReadAloud() : startReadAloud(); }
 
 function startReadAloud() {
   if (!currentEdition) return;
-  if (!window.speechSynthesis) {
-    setStatus('Read Aloud is not supported in this browser.');
-    return;
-  }
-  window.speechSynthesis.cancel(); // clear any stuck queue from a previous tab/visit
   isReading = true; ttsStop = false;
+  ttsPrefetch = new Map();
   document.getElementById('readAloudBtn').classList.add('playing');
   document.getElementById('readAloudIcon').textContent = '\u25A0';
   document.getElementById('readAloudLabel').textContent = 'Stop';
   setStatus('Preparing narration\u2026');
 
-  // Build the reading plan straight from what's already on screen —
-  // no server round-trip needed for browser-native narration.
+  // Build the reading plan straight from what's already on screen.
   ttsChunks = [];
   const allSections = currentEdition.sections || [];
   const readSections = reportFilter === 'all' ? allSections : allSections.filter((s, i) => i === reportFilter);
@@ -2535,9 +2538,25 @@ function startReadAloud() {
   }
   if (!ttsChunks.length) { setStatus('Nothing to read.'); return stopReadAloud(); }
 
-  if (!pickedVoice) pickedVoice = pickBestVoice();
+  if (!pickedVoice) pickedVoice = pickBestVoice(); // fallback voice, prepared in case it's ever needed
   ttsIndex = 0;
   speakChunk(0);
+}
+
+// Requests (or reuses an in-flight request for) the server-generated audio
+// URL for a given chunk index. Cached in ttsPrefetch so we only ever ask
+// once per chunk, and so the NEXT chunk can start generating while the
+// current one is still playing (hides the ~10-40s Gemini generation time).
+function requestServerAudio(idx) {
+  if (idx < 0 || idx >= ttsChunks.length) return Promise.resolve(null);
+  if (ttsPrefetch.has(idx)) return ttsPrefetch.get(idx);
+  const chunk = ttsChunks[idx];
+  const p = fetch('/api/tts', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: chunk.text, voice: TTS_VOICE }),
+  }).then(r => r.json()).then(d => (d && d.ok ? d.url : null)).catch(() => null);
+  ttsPrefetch.set(idx, p);
+  return p;
 }
 
 function spokenAloudText(text) {
@@ -2557,12 +2576,46 @@ function spokenAloudText(text) {
   return t.trim();
 }
 
-function speakChunk(idx) {
+async function speakChunk(idx) {
   if (ttsStop || idx >= ttsChunks.length) {
     if (!ttsStop) setStatus('Finished.');
     return stopReadAloud(true);
   }
   ttsIndex = idx;
+  const chunk = ttsChunks[idx];
+  ttsPlayer = null;
+
+  setStatus(`Preparing ${idx + 1}/${ttsChunks.length}: ${shortLabel(chunk.label)}\u2026`);
+  const url = await requestServerAudio(idx);
+  if (ttsStop) return;
+
+  // Kick off the NEXT chunk's generation now, in the background, so it's
+  // ready (or well underway) by the time this one finishes playing.
+  requestServerAudio(idx + 1);
+
+  if (url) {
+    playServerChunk(idx, url);
+  } else {
+    playBrowserFallback(idx);
+  }
+}
+
+function playServerChunk(idx, url) {
+  const chunk = ttsChunks[idx];
+  const audio = new Audio(url);
+  audio.playbackRate = ttsSpeed;
+  audio.onended = () => { if (!ttsStop) speakChunk(idx + 1); };
+  audio.onerror = () => { if (!ttsStop) playBrowserFallback(idx); }; // e.g. bad cached file — degrade gracefully
+  ttsPlayer = audio;
+  setStatus(`Reading ${idx + 1}/${ttsChunks.length}: ${shortLabel(chunk.label)}`);
+  audio.play().catch(() => setStatus('Tap Read Aloud again to allow audio.'));
+}
+
+// Only reached if the server voice could not be generated for this chunk
+// (offline, quota exhausted, etc.) — keeps Read Aloud working rather than
+// stopping outright, using the device's own built-in voice for just this bit.
+function playBrowserFallback(idx) {
+  if (!window.speechSynthesis) { return speakChunk(idx + 1); }
   const chunk = ttsChunks[idx];
   const spoken = spokenAloudText(chunk.text);
   if (!spoken) { return speakChunk(idx + 1); }
@@ -2585,6 +2638,7 @@ function shortLabel(s) {
 
 function stopReadAloud(finished) {
   ttsStop = true;
+  if (ttsPlayer) { try { ttsPlayer.pause(); } catch (e) {} ttsPlayer = null; }
   if (window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch (e) {} }
   ttsUtterance = null;
   isReading = false;
