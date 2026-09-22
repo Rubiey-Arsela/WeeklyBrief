@@ -1751,7 +1751,6 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
       <button class="read-aloud-btn" id="readAloudBtn" onclick="toggleReadAloud()">
         <span id="readAloudIcon">&#9654;</span> <span id="readAloudLabel">Read Aloud</span>
       </button>
-      <select id="voiceSelect" class="ra-select" title="Narration voice"></select>
       <label class="ra-speed">
         Speed
         <input type="range" id="speedRange" min="0.75" max="2" step="0.05" value="1"
@@ -2334,23 +2333,59 @@ function miniSpark(points) {
   return `<polyline points="${coords.join(' ')}" fill="none" stroke="var(--navy-600)" stroke-width="1.5" />`;
 }
 
-/* ---------- Read Aloud — natural voice (Gemini TTS, server-side) ---------- */
+/* ---------- Read Aloud — single natural voice, browser-native (no server, no key) ---------- */
+// Uses the Web Speech API (speechSynthesis) built into every modern browser —
+// no server round-trip, no API key, works instantly for every reader.
+// We pick ONE good native English voice automatically (preferring natural-sounding
+// en-GB/en-MY/en-AU voices, which read numbers and currency more the way a
+// Malaysian audience expects, over the more American-accented default) and never
+// expose a picker — so there's no "Charon" dropdown to confuse anyone.
 let ttsChunks = [];      // [{label, text}]
 let ttsIndex = 0;
-let ttsPlayer = null;
 let ttsSpeed = 1;
-let ttsVoice = 'Charon';
 let ttsStop = false;
+let ttsUtterance = null;
+let pickedVoice = null;
 
-async function loadVoices() {
-  const sel = document.getElementById('voiceSelect');
-  if (!sel) return;
-  try {
-    const vs = await (await fetch('/api/voices')).json();
-    sel.innerHTML = vs.map(v => `<option value="${v.id}">${v.label}</option>`).join('');
-    sel.value = ttsVoice;
-    sel.onchange = () => { ttsVoice = sel.value; if (isReading) restartReading(); };
-  } catch (e) { sel.innerHTML = '<option>Charon</option>'; }
+// Voices considered "natural" (not the old robotic sawtooth engines) and their
+// rough preference order — English variants closer to Malaysian usage first.
+const VOICE_PREFERENCE = [
+  // Chrome/Edge high-quality neural voices
+  'Google UK English Female', 'Google UK English Male',
+  'Microsoft Libby Online (Natural) - English (United Kingdom)',
+  'Microsoft Ryan Online (Natural) - English (United Kingdom)',
+  'Microsoft Sonia Online (Natural) - English (United Kingdom)',
+  // Safari/macOS/iOS natural voices
+  'Daniel', 'Karen', 'Serena', 'Kate',
+  // Generic fallbacks
+  'Google US English', 'Samantha', 'Alex',
+];
+
+function pickBestVoice() {
+  const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  if (!voices.length) return null;
+  // 1) Exact name match against our preference list, in order.
+  for (const name of VOICE_PREFERENCE) {
+    const v = voices.find(v => v.name === name);
+    if (v) return v;
+  }
+  // 2) Any English voice, preferring UK/Malaysia/Australia/India/Singapore
+  //    English over US, since it reads more naturally for a Malaysian audience.
+  const langPref = ['en-GB', 'en-MY', 'en-AU', 'en-IN', 'en-SG', 'en-US', 'en-'];
+  for (const lang of langPref) {
+    const v = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(lang.toLowerCase()));
+    if (v) return v;
+  }
+  // 3) Absolute fallback — first voice available.
+  return voices[0];
+}
+
+function loadVoices() {
+  if (!window.speechSynthesis) return;
+  const apply = () => { pickedVoice = pickBestVoice(); };
+  apply();
+  // Chrome loads the voice list asynchronously — refresh once it's ready.
+  window.speechSynthesis.onvoiceschanged = apply;
 }
 
 async function loadCurrentUser() {
@@ -2458,76 +2493,90 @@ function renderTourStep() {
 function setSpeed(v) {
   ttsSpeed = parseFloat(v);
   document.getElementById('speedLabel').textContent = ttsSpeed.toFixed(2).replace(/0$/,'') + '\u00d7';
-  // Applies live — playbackRate preserves pitch, so no re-generation needed.
-  if (ttsPlayer) ttsPlayer.playbackRate = ttsSpeed;
+  // Web Speech utterances can't change rate mid-sentence, so if we're
+  // reading, restart the current chunk at the new speed.
+  if (isReading && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+    speakChunk(ttsIndex);
+  }
 }
 
 function toggleReadAloud() { isReading ? stopReadAloud() : startReadAloud(); }
 
-async function restartReading() { stopReadAloud(); await startReadAloud(); }
-
-async function startReadAloud() {
+function startReadAloud() {
   if (!currentEdition) return;
+  if (!window.speechSynthesis) {
+    setStatus('Read Aloud is not supported in this browser.');
+    return;
+  }
+  window.speechSynthesis.cancel(); // clear any stuck queue from a previous tab/visit
   isReading = true; ttsStop = false;
   document.getElementById('readAloudBtn').classList.add('playing');
   document.getElementById('readAloudIcon').textContent = '\u25A0';
   document.getElementById('readAloudLabel').textContent = 'Stop';
   setStatus('Preparing narration\u2026');
 
-  try {
-    const plan = await (await fetch('/api/tts/plan', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ edition: currentEdition.id })
-    })).json();
-    ttsChunks = plan.chunks || [];
-  } catch (e) { setStatus('Could not prepare narration.'); return stopReadAloud(); }
-
-  // If a sector filter is on, read only that sector.
-  if (reportFilter !== 'all' && currentEdition.sections[reportFilter]) {
-    const want = currentEdition.sections[reportFilter].title;
-    const only = ttsChunks.filter(c => c.label === want);
-    if (only.length) ttsChunks = only;
+  // Build the reading plan straight from what's already on screen —
+  // no server round-trip needed for browser-native narration.
+  ttsChunks = [];
+  const allSections = currentEdition.sections || [];
+  const readSections = reportFilter === 'all' ? allSections : allSections.filter((s, i) => i === reportFilter);
+  if (reportFilter === 'all' && currentEdition.exec_summary) {
+    ttsChunks.push({ label: 'Executive Summary', text: currentEdition.exec_summary });
   }
+  for (const sec of readSections) {
+    if (!sec) continue;
+    const parts = [sec.title + '.'];
+    for (const item of (sec.items || [])) {
+      parts.push(item.title || '');
+      parts.push((item.body || '').replace(/<[^>]+>/g, ' '));
+    }
+    ttsChunks.push({ label: sec.title, text: parts.join(' ') });
+  }
+  if (!ttsChunks.length) { setStatus('Nothing to read.'); return stopReadAloud(); }
 
+  if (!pickedVoice) pickedVoice = pickBestVoice();
   ttsIndex = 0;
-  playNextChunk();
+  speakChunk(0);
 }
 
-async function playNextChunk() {
-  if (ttsStop || ttsIndex >= ttsChunks.length) {
+function spokenAloudText(text) {
+  // Make written brief prose ("RM 1.5 bn", "+7.80% wow") read naturally.
+  let t = (text || '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, 'and');
+  const repl = [
+    [/\bwow\b/g, 'week on week'], [/\bmom\b/g, 'month on month'], [/\byoy\b/g, 'year on year'],
+    [/\bRM\s*([\d.,]+)\s*bn\b/gi, '$1 billion ringgit'], [/\bRM\s*([\d.,]+)\s*m\b/gi, '$1 million ringgit'],
+    [/\bRM\s*([\d.,]+)/g, '$1 ringgit'],
+    [/\bUSD\s*([\d.,]+)\s*\/\s*bbl\b/gi, '$1 US dollars per barrel'], [/\bUSD\s*([\d.,]+)/g, '$1 US dollars'],
+    [/([\d.]+)\s*%/g, '$1 percent'], [/\bbps\b/g, 'basis points'], [/\bppt\b/g, 'percentage points'],
+    [/\bQ([1-4])\b/g, 'quarter $1'], [/\bH([12])\b/g, 'half $1'],
+    [/\be\.g\./g, 'for example'], [/\bi\.e\./g, 'that is'], [/\bvs\.?\b/gi, 'versus'],
+    [/\s+/g, ' '],
+  ];
+  for (const [pat, rep] of repl) t = t.replace(pat, rep);
+  return t.trim();
+}
+
+function speakChunk(idx) {
+  if (ttsStop || idx >= ttsChunks.length) {
     if (!ttsStop) setStatus('Finished.');
     return stopReadAloud(true);
   }
-  const chunk = ttsChunks[ttsIndex];
-  setStatus(`Preparing ${ttsIndex + 1}/${ttsChunks.length}: ${shortLabel(chunk.label)}\u2026`);
-  let url;
-  try {
-    const r = await fetch('/api/tts', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ text: chunk.text, voice: ttsVoice })
-    });
-    const d = await r.json();
-    if (!d.ok) throw new Error(d.error || 'tts failed');
-    url = d.url;
-  } catch (e) {
-    setStatus('Narration unavailable for this section \u2014 skipping.');
-    ttsIndex++;
-    return playNextChunk();
-  }
-  if (ttsStop) return;
+  ttsIndex = idx;
+  const chunk = ttsChunks[idx];
+  const spoken = spokenAloudText(chunk.text);
+  if (!spoken) { return speakChunk(idx + 1); }
 
-  ttsPlayer = new Audio(url);
-  ttsPlayer.playbackRate = ttsSpeed;
-  ttsPlayer.onended = () => { ttsIndex++; playNextChunk(); };
-  ttsPlayer.onerror = () => { ttsIndex++; playNextChunk(); };
-  ttsPlayer.play().catch(() => setStatus('Tap Read Aloud again to allow audio.'));
-  setStatus(`Reading ${ttsIndex + 1}/${ttsChunks.length}: ${shortLabel(chunk.label)}`);
-  // Prefetch the next chunk so playback is continuous.
-  const nxt = ttsChunks[ttsIndex + 1];
-  if (nxt) fetch('/api/tts', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ text: nxt.text, voice: ttsVoice })
-  }).catch(() => {});
+  const u = new SpeechSynthesisUtterance(spoken);
+  if (pickedVoice) u.voice = pickedVoice;
+  u.lang = (pickedVoice && pickedVoice.lang) || 'en-GB';
+  u.rate = ttsSpeed;
+  u.pitch = 1;
+  u.onend = () => { if (!ttsStop) speakChunk(idx + 1); };
+  u.onerror = () => { if (!ttsStop) speakChunk(idx + 1); };
+  ttsUtterance = u;
+  setStatus(`Reading ${idx + 1}/${ttsChunks.length}: ${shortLabel(chunk.label)}`);
+  window.speechSynthesis.speak(u);
 }
 
 function shortLabel(s) {
@@ -2536,7 +2585,8 @@ function shortLabel(s) {
 
 function stopReadAloud(finished) {
   ttsStop = true;
-  if (ttsPlayer) { try { ttsPlayer.pause(); } catch (e) {} ttsPlayer = null; }
+  if (window.speechSynthesis) { try { window.speechSynthesis.cancel(); } catch (e) {} }
+  ttsUtterance = null;
   isReading = false;
   const b = document.getElementById('readAloudBtn');
   if (b) b.classList.remove('playing');
