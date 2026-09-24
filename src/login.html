@@ -51,31 +51,21 @@
   .login-form-box { width: 100%; max-width: 380px; }
 
   .mvb-brand {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 36px;
+    margin-bottom: 14px;
   }
   .mvb-brand img {
-    height: 44px;
+    height: 72px;
     width: auto;
     object-fit: contain;
-    flex-shrink: 0;
+    display: block;
   }
-  .mvb-brand-text { display: flex; flex-direction: column; line-height: 1.15; }
-  .mvb-brand-text .name {
-    font-family: 'Trebuchet MS', 'Lucida Grande', 'Verdana', sans-serif;
-    font-size: 22px;
-    font-weight: 800;
-    color: var(--navy-700);
-    letter-spacing: -0.3px;
-  }
-  .mvb-brand-text .tagline {
-    font-size: 10px;
-    font-weight: 600;
+  .mvb-product-tag {
+    font-size: 11px;
+    font-weight: 700;
     color: var(--slate-500);
-    letter-spacing: 0.8px;
+    letter-spacing: 1.2px;
     text-transform: uppercase;
+    margin-bottom: 32px;
   }
 
   .login-form-box h1 { font-size: 26px; margin-bottom: 6px; color: var(--navy-900); font-weight: 700; }
@@ -239,12 +229,9 @@
   <div class="login-panel-form">
     <div class="login-form-box">
       <div class="mvb-brand">
-        <img src="/static/logo-maida-vale.png" alt="Maida Vale Weekly Brief">
-        <div class="mvb-brand-text">
-          <span class="name">Maida Vale</span>
-          <span class="tagline">Weekly Brief</span>
-        </div>
+        <img src="/static/logo-arsela.png" alt="Arsela Resources">
       </div>
+      <div class="mvb-product-tag">Maida Vale Weekly Brief</div>
 
       <h1>Welcome back</h1>
       <p class="lede">Sign in with your organisation's Microsoft 365 account to access this week's brief.</p>
@@ -268,8 +255,8 @@
 
       <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--slate-200)">
         <span class="powered-by">
-          <i class="fas fa-shield-halved" style="color:var(--slate-500);font-size:12px"></i>
-          Powered by <strong>Arsela Resources</strong>
+          <i class="fas fa-newspaper" style="color:var(--slate-500);font-size:12px"></i>
+          Maida Vale Weekly Brief — Malaysia Sector Intelligence
         </span>
       </div>
     </div>
