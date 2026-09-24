@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sign in — Maida Vale Weekly Brief</title>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
 <style>
   :root {
     --navy-900: #102320;
@@ -12,72 +13,74 @@
     --navy-700: #295650;
     --navy-600: #316860;
     --navy-500: #3f837a;
+    --teal: #00A896;
+    --slate-800: #1e293b;
     --slate-600: #475569;
     --slate-500: #64748b;
     --slate-300: #cbd5e1;
     --slate-200: #e2e8f0;
     --slate-100: #f1f5f9;
     --white: #ffffff;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     height: 100%;
     font-family: 'Trebuchet MS', 'Lucida Grande', 'Verdana', sans-serif;
-    background: var(--slate-100);
-    color: #1a1a2e;
+    color: var(--slate-800);
   }
-  .page {
-    min-height: 100%;
+
+  /* ---------- Split screen (Coprojecta-style layout) ---------- */
+  .login-screen {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Left: sign-in form panel */
+  .login-panel-form {
+    background: var(--white);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
-    background: radial-gradient(circle at 20% 15%, rgba(63,131,122,0.16), transparent 45%),
-                radial-gradient(circle at 85% 85%, rgba(41,86,80,0.14), transparent 50%),
-                var(--slate-100);
+    padding: 48px 64px;
+    position: relative;
   }
-  .login-card {
-    width: 100%;
-    max-width: 400px;
-    background: var(--white);
-    border-radius: 12px;
-    box-shadow: 0 24px 64px rgba(16, 35, 32, 0.14);
-    overflow: hidden;
-    border: 1px solid var(--slate-200);
+  .login-form-box { width: 100%; max-width: 380px; }
+
+  .mvb-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 36px;
   }
-  .login-brand {
-    background: var(--navy-900);
-    padding: 36px 32px 28px;
-    text-align: center;
-  }
-  .login-brand img {
-    height: 34px;
+  .mvb-brand img {
+    height: 44px;
     width: auto;
-    margin-bottom: 14px;
+    object-fit: contain;
+    flex-shrink: 0;
   }
-  .login-brand h1 {
-    color: var(--white);
-    font-size: 1.375rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+  .mvb-brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+  .mvb-brand-text .name {
+    font-family: 'Trebuchet MS', 'Lucida Grande', 'Verdana', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--navy-700);
+    letter-spacing: -0.3px;
   }
-  .login-brand .subtitle {
-    color: rgba(255,255,255,0.65);
-    font-size: 0.75rem;
-    letter-spacing: 0.08em;
+  .mvb-brand-text .tagline {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--slate-500);
+    letter-spacing: 0.8px;
     text-transform: uppercase;
-    margin-top: 4px;
   }
-  .login-body {
-    padding: 32px;
-  }
-  .login-body p.lede {
-    font-size: 0.875rem;
-    color: var(--slate-600);
-    text-align: center;
-    margin-bottom: 24px;
-    line-height: 1.5;
-  }
+
+  .login-form-box h1 { font-size: 26px; margin-bottom: 6px; color: var(--navy-900); font-weight: 700; }
+  .login-form-box p.lede { font-size: 14px; color: var(--slate-600); margin-bottom: 28px; line-height: 1.5; }
+
   .ms-signin-btn {
     display: flex;
     align-items: center;
@@ -86,40 +89,27 @@
     width: 100%;
     padding: 12px 20px;
     background: var(--white);
-    border: 1px solid #8c8c8c;
-    border-radius: 4px;
+    border: 1.5px solid var(--slate-200);
+    border-radius: var(--radius-sm);
     font-size: 0.9375rem;
     font-weight: 600;
-    color: #1a1a2e;
+    color: var(--slate-800);
     cursor: pointer;
     text-decoration: none;
     transition: box-shadow 0.15s, border-color 0.15s;
   }
   .ms-signin-btn:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    border-color: #666;
+    box-shadow: var(--shadow);
+    border-color: var(--slate-300);
   }
   .ms-signin-btn svg { flex-shrink: 0; }
-  .divider {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 24px 0;
-    color: var(--slate-500);
-    font-size: 0.75rem;
-  }
-  .divider::before, .divider::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--slate-200);
-  }
+
   .fallback-notice {
     font-size: 0.8125rem;
     color: var(--slate-500);
     background: var(--slate-100);
     border: 1px solid var(--slate-200);
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 12px 14px;
     line-height: 1.5;
     text-align: center;
@@ -129,38 +119,137 @@
     border: 1px solid #fecaca;
     color: #991b1b;
     font-size: 0.8125rem;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 10px 14px;
     margin-bottom: 20px;
     line-height: 1.4;
   }
-  .login-footer {
-    padding: 18px 32px 26px;
-    text-align: center;
-    border-top: 1px solid var(--slate-200);
-  }
+
   .powered-by {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    font-size: 11px;
     color: var(--slate-500);
-    font-size: 0.6875rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    letter-spacing: 0.3px;
   }
-  .powered-by img { height: 16px; width: auto; opacity: 0.85; }
+  .powered-by strong { color: var(--navy-700); font-weight: 700; }
+  .powered-by img { height: 18px; width: auto; }
+
+  /* Right: gradient visual panel with a floating preview card, à la Coprojecta */
+  .login-panel-visual {
+    background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-700) 60%, var(--teal) 130%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+    padding: 48px;
+  }
+  .login-panel-visual::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(ellipse at 30% 50%, rgba(0,168,150,0.25) 0%, transparent 60%),
+                       radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .login-visual-content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    max-width: 420px;
+  }
+  .login-visual-content h2 {
+    color: #fff;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+  }
+  .login-visual-content p {
+    color: rgba(255,255,255,0.82);
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  /* Floating "This Week's Brief" preview card */
+  .auth-preview-card {
+    background: rgba(255,255,255,0.10);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    margin-bottom: 16px;
+    text-align: left;
+    transform: rotate(-1deg);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.20);
+  }
+  .auth-preview-card h4 {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    opacity: 0.9;
+  }
+  .auth-preview-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .auth-preview-row:last-child { border-bottom: none; }
+  .auth-preview-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .auth-preview-title { font-size: 12px; color: rgba(255,255,255,0.85); flex: 1; }
+  .auth-preview-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .auth-stats-row { display: flex; gap: 12px; margin-top: 12px; transform: rotate(1deg); }
+  .auth-stat-mini {
+    flex: 1;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    text-align: center;
+    backdrop-filter: blur(8px);
+  }
+  .auth-stat-mini .num { font-size: 22px; font-weight: 700; color: #fff; display: block; }
+  .auth-stat-mini .lbl { font-size: 10px; color: rgba(255,255,255,0.65); display: block; margin-top: 2px; }
+
+  @media (max-width: 900px) {
+    .login-screen { grid-template-columns: 1fr; }
+    .login-panel-visual { display: none; }
+    .login-panel-form { padding: 32px 24px; }
+  }
 </style>
 </head>
 <body>
-<div class="page">
-  <div class="login-card">
-    <div class="login-brand">
-      <h1>Maida Vale</h1>
-      <div class="subtitle">Weekly Brief · Malaysia Sector Intelligence</div>
-    </div>
-    <div class="login-body">
-      <div id="errorBanner" class="error-banner" style="display:none;"></div>
+<div class="login-screen">
+
+  <!-- ============ LEFT: sign-in form panel ============ -->
+  <div class="login-panel-form">
+    <div class="login-form-box">
+      <div class="mvb-brand">
+        <img src="/static/logo-maida-vale.png" alt="Maida Vale Weekly Brief">
+        <div class="mvb-brand-text">
+          <span class="name">Maida Vale</span>
+          <span class="tagline">Weekly Brief</span>
+        </div>
+      </div>
+
+      <h1>Welcome back</h1>
       <p class="lede">Sign in with your organisation's Microsoft 365 account to access this week's brief.</p>
+
+      <div id="errorBanner" class="error-banner" style="display:none;"></div>
 
       <a href="/auth/login" class="ms-signin-btn" id="msSignInBtn">
         <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
@@ -176,14 +265,49 @@
         Microsoft sign-in has not been configured for this deployment yet.
         Contact your administrator to complete setup.
       </div>
-    </div>
-    <div class="login-footer">
-      <span class="powered-by">
-        Powered by
-        <img src="/static/logo-arsela.png" alt="Arsela Resources">
-      </span>
+
+      <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--slate-200)">
+        <span class="powered-by">
+          <i class="fas fa-shield-halved" style="color:var(--slate-500);font-size:12px"></i>
+          Powered by <strong>Arsela Resources</strong>
+        </span>
+      </div>
     </div>
   </div>
+
+  <!-- ============ RIGHT: gradient visual panel ============ -->
+  <div class="login-panel-visual">
+    <div class="login-visual-content">
+      <h2>Your weekly edge, in one brief</h2>
+      <p>Global, Asia Pacific and Malaysia developments across every sector that matters to the Group — curated, tracked, and delivered every Friday.</p>
+
+      <div class="auth-preview-card">
+        <h4><i class="fas fa-newspaper" style="margin-right:6px;opacity:0.7"></i>This Week's Brief</h4>
+        <div class="auth-preview-row">
+          <div class="auth-preview-dot" style="background:#3B82F6"></div>
+          <span class="auth-preview-title">Ports, Logistics &amp; Infrastructure</span>
+          <span class="auth-preview-badge" style="background:rgba(59,130,246,0.2);color:#93C5FD">High Priority</span>
+        </div>
+        <div class="auth-preview-row">
+          <div class="auth-preview-dot" style="background:#22C55E"></div>
+          <span class="auth-preview-title">Energy &amp; Sustainability</span>
+          <span class="auth-preview-badge" style="background:rgba(34,197,94,0.2);color:#86EFAC">Updated</span>
+        </div>
+        <div class="auth-preview-row">
+          <div class="auth-preview-dot" style="background:#F59E0B"></div>
+          <span class="auth-preview-title">Banking &amp; Financial Services</span>
+          <span class="auth-preview-badge" style="background:rgba(245,158,11,0.2);color:#FCD34D">Watching</span>
+        </div>
+      </div>
+
+      <div class="auth-stats-row">
+        <div class="auth-stat-mini"><span class="num">11</span><span class="lbl">Sectors</span></div>
+        <div class="auth-stat-mini"><span class="num">Weekly</span><span class="lbl">Cadence</span></div>
+        <div class="auth-stat-mini"><span class="num">MY</span><span class="lbl">Focus</span></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 <script>
   (function () {
