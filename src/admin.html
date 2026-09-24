@@ -108,6 +108,7 @@
   .badge.active { background: rgba(22,163,74,0.12); color: var(--success); }
   .badge.revoked { background: rgba(239,68,68,0.12); color: var(--danger); }
   .badge.stale { background: rgba(245,158,11,0.12); color: var(--warning); }
+  .badge.admin { background: rgba(0,168,150,0.12); color: var(--teal); }
 
   .action-btn {
     font-size: 12px;
@@ -255,6 +256,19 @@
     </div>
 
     <div class="panel">
+      <div class="panel-header"><h2><i class="fas fa-user-shield" style="margin-right:6px;"></i>Personal Admin Sign-In</h2></div>
+      <div class="panel-body">
+        <p class="hint" style="margin-bottom:12px;">On the same sign-in box readers use, entering the name "<strong>Rubiey</strong>" with this private code grants admin access (Add/Edit Report + this dashboard) — separate from the shared reader code above. Rotating it logs your own admin sessions out; it never affects readers.</p>
+        <div class="code-row">
+          <div class="inline-form">
+            <input type="text" id="newPersonalCodeInput" placeholder="New personal admin code" maxlength="12">
+            <button onclick="rotatePersonalCode()">Rotate my code</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="panel-header"><h2><i class="fas fa-lock" style="margin-right:6px;"></i>Change Admin Password</h2></div>
       <div class="panel-body">
         <div class="inline-form">
@@ -358,9 +372,10 @@ async function loadReaders() {
     if (r.revoked) statusBadge = '<span class="badge revoked">Revoked</span>';
     else if (!r.active) statusBadge = '<span class="badge stale">Code changed</span>';
     else statusBadge = '<span class="badge active">Active</span>';
+    const adminBadge = r.role === 'admin' ? ' <span class="badge admin">Admin</span>' : '';
     return `
       <tr class="clickable" onclick="openActivity('${r.id}','${esc(r.name)}')">
-        <td><strong>${esc(r.name)}</strong></td>
+        <td><strong>${esc(r.name)}</strong>${adminBadge}</td>
         <td>${statusBadge}</td>
         <td>${timeAgo(r.first_seen)}</td>
         <td>${timeAgo(r.last_seen)}</td>
@@ -418,6 +433,24 @@ async function rotateCode() {
     input.value = '';
     loadReaders();
     alert('Code updated. Share the new code with your readers.');
+  } else {
+    alert(data.error || 'Failed to update code.');
+  }
+}
+
+async function rotatePersonalCode() {
+  const input = document.getElementById('newPersonalCodeInput');
+  const code = input.value.trim();
+  if (!code || code.length < 4) { alert('Please enter a code of at least 4 characters.'); return; }
+  if (!confirm('This will log out your own admin sign-ins on every device. Reader access for everyone else is unaffected. Continue?')) return;
+  const resp = await fetch('/api/admin/personal-code', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  const data = await resp.json();
+  if (data.ok) {
+    input.value = '';
+    alert('Your personal admin code has been updated.');
   } else {
     alert(data.error || 'Failed to update code.');
   }

@@ -15,6 +15,7 @@ import {
 import {
   getReaderCode, getReaderCookie, verifyReaderSession, touchReaderSession,
   createReaderSession, buildReaderSetCookie, buildReaderClearCookie, logActivity,
+  checkPersonalAdmin, getAdminCodeVersion,
 } from './readerAuth'
 import {
   checkAdminPassword, changeAdminPassword, signAdminSession, verifyAdminSession,
@@ -151,15 +152,18 @@ app.get('/api/me', async (c) => {
   const readerToken = getReaderCookie(c.req.raw)
   const readerSession = readerToken ? await verifyReaderSession(c.env.DB, readerToken) : null
   if (readerSession) {
-    return c.json({ ok: true, configured: isAuthConfigured(c.env), user: { name: readerSession.name }, role: 'reader' })
+    const role = readerSession.role === 'admin' ? 'admin' : 'reader'
+    return c.json({ ok: true, configured: isAuthConfigured(c.env), user: { name: readerSession.name }, role })
   }
   return c.json({ ok: true, configured: isAuthConfigured(c.env), user: null, role: 'staff' })
 })
 
-// Staff-or-admin check: Microsoft SSO session OR the admin dashboard
-// password session. Reader-access sessions never satisfy this — used
-// to gate editorial actions (uploading/editing/deleting edition
-// content) so WhatsApp-distributed reader access stays view-only.
+// Staff-or-admin check: Microsoft SSO session, the admin dashboard
+// password session, OR a reader-access session personally elevated to
+// role='admin' (Rubiey's name + her private code — see readerAuth.ts).
+// Ordinary reader-access sessions never satisfy this — used to gate
+// editorial actions (uploading/editing/deleting edition content) so the
+// WhatsApp-distributed reader access stays view-only for everyone else.
 async function isStaffRequest(c: any): Promise<boolean> {
   if (isAuthConfigured(c.env)) {
     const msToken = getCookie(c.req.raw, SESSION_COOKIE)
@@ -168,6 +172,9 @@ async function isStaffRequest(c: any): Promise<boolean> {
   }
   const adminToken = getAdminCookie(c.req.raw)
   if (adminToken && await verifyAdminSession(c.env, adminToken)) return true
+  const readerToken = getReaderCookie(c.req.raw)
+  const readerSession = readerToken ? await verifyReaderSession(c.env.DB, readerToken) : null
+  if (readerSession && readerSession.role === 'admin') return true
   return false
 }
 
@@ -181,6 +188,19 @@ app.post('/api/reader-access', async (c) => {
   if (!name) return c.json({ ok: false, error: 'Please enter your name.' }, 400)
   if (!code) return c.json({ ok: false, error: 'Please enter the access code.' }, 400)
 
+  // Personal admin elevation: the exact name + a private code (distinct
+  // from the shared WhatsApp-group code) grants an admin-role session
+  // through the same low-friction box everyone else uses. Checked first
+  // so it takes priority; the shared reader_code alone — even paired with
+  // the admin's name — never elevates, since that check requires the
+  // separate personal code to also match.
+  if (await checkPersonalAdmin(c.env.DB, name, code)) {
+    const ua = c.req.header('User-Agent') || ''
+    const { id, days } = await createReaderSession(c.env.DB, name, ua, 'admin')
+    c.header('Set-Cookie', buildReaderSetCookie(id, days))
+    return c.json({ ok: true, role: 'admin' })
+  }
+
   const { code: expected } = await getReaderCode(c.env.DB)
   if (code !== expected) {
     return c.json({ ok: false, error: 'That access code is not correct. Please check with your director.' }, 401)
@@ -189,13 +209,18 @@ app.post('/api/reader-access', async (c) => {
   const ua = c.req.header('User-Agent') || ''
   const { id, days } = await createReaderSession(c.env.DB, name, ua)
   c.header('Set-Cookie', buildReaderSetCookie(id, days))
-  return c.json({ ok: true })
+  return c.json({ ok: true, role: 'reader' })
 })
 
 app.get('/api/reader-me', async (c) => {
   const token = getReaderCookie(c.req.raw)
   const session = token ? await verifyReaderSession(c.env.DB, token) : null
-  return c.json({ ok: true, reader: session ? { name: session.name, id: session.id } : null })
+  return c.json({ ok: true, reader: session ? { name: session.name, id: session.id, role: session.role } : null })
+})
+
+app.get('/auth/reader-logout', (c) => {
+  c.header('Set-Cookie', buildReaderClearCookie())
+  return c.redirect('/login')
 })
 
 // Fire-and-forget activity beacon from the frontend (tab switches, sector
@@ -239,6 +264,9 @@ async function isAdminRequest(c: any): Promise<boolean> {
     const msUser = msToken ? await verifySession(c.env, msToken) : null
     if (msUser) return true
   }
+  const readerToken = getReaderCookie(c.req.raw)
+  const readerSession = readerToken ? await verifyReaderSession(c.env.DB, readerToken) : null
+  if (readerSession && readerSession.role === 'admin') return true
   return false
 }
 
@@ -276,13 +304,14 @@ app.post('/api/admin/change-password', async (c) => {
 app.get('/api/admin/readers', async (c) => {
   if (!(await isAdminRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
   const rows = await c.env.DB.prepare(
-    `SELECT id, name, first_seen, last_seen, visit_count, revoked, code_version
+    `SELECT id, name, first_seen, last_seen, visit_count, revoked, code_version, role
      FROM reader_sessions ORDER BY last_seen DESC`,
   ).all()
   const { version: currentVersion } = await getReaderCode(c.env.DB)
+  const adminVersion = await getAdminCodeVersion(c.env.DB)
   const readers = (rows.results || []).map((r: any) => ({
     ...r,
-    active: !r.revoked && r.code_version === currentVersion,
+    active: !r.revoked && r.code_version === (r.role === 'admin' ? adminVersion : currentVersion),
   }))
   return c.json({ ok: true, readers, current_code_version: currentVersion })
 })
@@ -329,6 +358,28 @@ app.post('/api/admin/code', async (c) => {
   ).bind(newCode).run()
   await c.env.DB.prepare(
     `INSERT INTO app_settings (key, value) VALUES ('reader_code_version', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).bind(String(newVersion)).run()
+  return c.json({ ok: true, code: newCode, version: newVersion })
+})
+
+// Rubiey's personal elevation code — separate from the shared reader
+// code above. Rotating it invalidates her existing admin-role sessions
+// (code_version bump) without touching the WhatsApp group's shared code
+// or their sessions.
+app.post('/api/admin/personal-code', async (c) => {
+  if (!(await isAdminRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const body = await c.req.json().catch(() => ({}))
+  const newCode = (body.code || '').toString().trim()
+  if (!newCode || newCode.length < 4) return c.json({ ok: false, error: 'Code must be at least 4 characters.' }, 400)
+  const version = await getAdminCodeVersion(c.env.DB)
+  const newVersion = version + 1
+  await c.env.DB.prepare(
+    `INSERT INTO app_settings (key, value) VALUES ('admin_personal_code', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).bind(newCode).run()
+  await c.env.DB.prepare(
+    `INSERT INTO app_settings (key, value) VALUES ('admin_personal_code_version', ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
   ).bind(String(newVersion)).run()
   return c.json({ ok: true, code: newCode, version: newVersion })

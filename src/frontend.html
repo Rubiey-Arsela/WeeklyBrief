@@ -269,6 +269,18 @@ body {
   color: var(--slate-300);
 }
 .admin-user .au-name strong { color: var(--white); font-weight: 600; }
+.admin-user .au-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--teal, #00A896);
+  border: 1px solid var(--teal, #00A896);
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
 .admin-user .au-signout {
   font-size: 0.75rem;
   color: var(--slate-400);
@@ -2427,14 +2439,18 @@ async function loadCurrentUser() {
   const el = document.getElementById('adminUser');
   try {
     const me = await (await fetch('/api/me')).json();
-    // Reader-access visitors (name + shared code) never see the
-    // editorial controls — Add/Manage Reports stay staff-only, since
-    // readers should only ever view the brief, not edit its content.
+    // Ordinary reader-access visitors (name + shared code) never see the
+    // editorial controls — Add/Manage Reports stay hidden for role
+    // 'reader'. A personally-elevated reader session (role 'admin' —
+    // e.g. Rubiey signing in with her private code) sees them, same as
+    // Microsoft-SSO staff.
     const actionsBar = document.getElementById('adminActions');
     if (actionsBar) actionsBar.style.display = me.role === 'reader' ? 'none' : '';
 
     if (!el) return;
-    if (me.role === 'reader' && me.user) {
+    if (me.role === 'admin' && me.user) {
+      el.innerHTML = `<span class="au-name">Signed in as <strong>${esc(me.user.name)}</strong> <span class="au-badge">Admin</span></span><a class="au-signout" href="/admin/access" title="Reader Access dashboard">Reader Access</a><a class="au-signout" href="/auth/reader-logout">Sign out</a>`;
+    } else if (me.role === 'reader' && me.user) {
       el.innerHTML = `<span class="au-name">Viewing as <strong>${esc(me.user.name)}</strong></span>`;
     } else if (me.configured && me.user) {
       el.innerHTML = `<span class="au-name">Signed in as <strong>${esc(me.user.name || me.user.email)}</strong></span><a class="au-signout" href="/auth/logout">Sign out</a>`;

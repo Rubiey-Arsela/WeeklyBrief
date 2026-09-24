@@ -30,6 +30,7 @@ export interface ReaderSession {
   name: string
   code_version: number
   revoked: number
+  role: 'reader' | 'admin'
 }
 
 async function getSetting(db: D1Database, key: string, fallback: string): Promise<string> {
@@ -41,6 +42,25 @@ export async function getReaderCode(db: D1Database): Promise<{ code: string; ver
   const code = await getSetting(db, 'reader_code', '6170')
   const version = parseInt(await getSetting(db, 'reader_code_version', '1'), 10) || 1
   return { code, version }
+}
+
+// Personal admin elevation, layered on top of the same low-friction
+// name+code box readers use — a distinct private code (separate from the
+// shared reader_code) tied to one specific name. Matching BOTH grants an
+// 'admin' role reader session; typing the right name with the ordinary
+// shared code (or vice versa) still only grants an ordinary 'reader'
+// session. This is intentional: the WhatsApp group's shared code must
+// never be sufficient on its own to gain edit access, even if someone
+// types the admin's name.
+export async function checkPersonalAdmin(db: D1Database, name: string, code: string): Promise<boolean> {
+  const expectedName = await getSetting(db, 'admin_personal_name', '')
+  const expectedCode = await getSetting(db, 'admin_personal_code', '')
+  if (!expectedName || !expectedCode) return false
+  return name.trim().toLowerCase() === expectedName.trim().toLowerCase() && code.trim() === expectedCode.trim()
+}
+
+export async function getAdminCodeVersion(db: D1Database): Promise<number> {
+  return parseInt(await getSetting(db, 'admin_personal_code_version', '1'), 10) || 1
 }
 
 export async function getSessionDays(db: D1Database): Promise<number> {
@@ -72,9 +92,17 @@ export function buildReaderClearCookie(): string {
 export async function verifyReaderSession(db: D1Database, sessionId: string | undefined): Promise<ReaderSession | null> {
   if (!sessionId) return null
   const row = await db.prepare(
-    'SELECT id, name, code_version, revoked FROM reader_sessions WHERE id = ?',
+    'SELECT id, name, code_version, revoked, role FROM reader_sessions WHERE id = ?',
   ).bind(sessionId).first<ReaderSession>()
   if (!row || row.revoked) return null
+  // An admin-elevated session is tied to the personal admin code's own
+  // version counter, not the shared reader code's — rotating the
+  // WhatsApp-group code must not log Rubiey out, and rotating her
+  // personal code must not log out the group.
+  if (row.role === 'admin') {
+    const currentAdminVersion = await getAdminCodeVersion(db)
+    return row.code_version === currentAdminVersion ? row : null
+  }
   const { version: currentVersion } = await getReaderCode(db)
   if (row.code_version !== currentVersion) return null // code was rotated since this device unlocked
   return row
@@ -86,14 +114,19 @@ export async function touchReaderSession(db: D1Database, sessionId: string): Pro
   ).bind(sessionId).run()
 }
 
-export async function createReaderSession(db: D1Database, name: string, userAgent: string): Promise<{ id: string; days: number }> {
+export async function createReaderSession(
+  db: D1Database,
+  name: string,
+  userAgent: string,
+  role: 'reader' | 'admin' = 'reader',
+): Promise<{ id: string; days: number; role: 'reader' | 'admin' }> {
   const id = crypto.randomUUID()
-  const { version } = await getReaderCode(db)
+  const version = role === 'admin' ? await getAdminCodeVersion(db) : (await getReaderCode(db)).version
   const days = await getSessionDays(db)
   await db.prepare(
-    `INSERT INTO reader_sessions (id, name, code_version, user_agent) VALUES (?,?,?,?)`,
-  ).bind(id, name.trim().slice(0, 120), version, userAgent.slice(0, 300)).run()
-  return { id, days }
+    `INSERT INTO reader_sessions (id, name, code_version, user_agent, role) VALUES (?,?,?,?,?)`,
+  ).bind(id, name.trim().slice(0, 120), version, userAgent.slice(0, 300), role).run()
+  return { id, days, role }
 }
 
 export async function logActivity(
