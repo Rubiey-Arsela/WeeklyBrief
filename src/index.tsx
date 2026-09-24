@@ -12,12 +12,22 @@ import {
   signSession, buildAuthorizeUrl, exchangeCodeForToken, fetchMicrosoftProfile,
   domainAllowed, SESSION_COOKIE, STATE_COOKIE,
 } from './auth'
+import {
+  getReaderCode, getReaderCookie, verifyReaderSession, touchReaderSession,
+  createReaderSession, buildReaderSetCookie, buildReaderClearCookie, logActivity,
+} from './readerAuth'
+import {
+  checkAdminPassword, changeAdminPassword, signAdminSession, verifyAdminSession,
+  getAdminCookie, buildAdminSetCookie, buildAdminClearCookie,
+} from './adminAuth'
 // The original static/index.html frontend, imported verbatim as a raw
 // string at build time and served unchanged — see src/frontend.html.
 // @ts-ignore - vite raw import
 import frontendHtml from './frontend.html?raw'
 // @ts-ignore - vite raw import
 import loginHtml from './login.html?raw'
+// @ts-ignore - vite raw import
+import adminHtml from './admin.html?raw'
 
 const app = new Hono<AppEnv>()
 
@@ -26,24 +36,47 @@ app.use('/static/*', serveStatic({ root: './public' }))
 app.use('/favicon.ico', serveStatic({ path: './public/favicon.ico' }))
 
 // ------------------------------------------------------------------- auth
-// Login is only enforced once MS_CLIENT_ID + MS_CLIENT_SECRET secrets are
-// set (see src/auth.ts) — until then every route below is open, so the
-// app keeps working in the sandbox / before the Azure App Registration
-// exists. /auth/*, /login, and static assets are always reachable so the
-// login page itself can render and the OAuth callback can complete.
+// Two independent ways in, both landing on the same report:
+//   1. Microsoft SSO (src/auth.ts) — for Al Bukhary/Arsela staff. Only
+//      enforced once MS_CLIENT_ID + MS_CLIENT_SECRET secrets are set.
+//   2. Reader access (src/readerAuth.ts) — a name + shared code unlock
+//      for the WhatsApp-distributed link, aimed at readers who won't
+//      tolerate a repeated username/password. Always active (does not
+//      depend on any secret being set), so it's the fallback whenever
+//      MS SSO isn't configured or the visitor isn't MS-signed-in.
+// /auth/*, /login, /admin/*, reader/admin API endpoints, and static
+// assets are always reachable so those flows can complete.
 app.use('*', async (c, next) => {
   const path = new URL(c.req.url).pathname
-  const openPaths = path.startsWith('/auth/') || path === '/login' || path.startsWith('/static/') || path === '/favicon.ico'
-  if (openPaths || !isAuthConfigured(c.env)) return next()
+  const openPaths =
+    path.startsWith('/auth/') || path === '/login' || path.startsWith('/static/') ||
+    path === '/favicon.ico' || path.startsWith('/admin') || path.startsWith('/api/admin') ||
+    path === '/api/reader-access' || path === '/api/admin-login' || path === '/api/track' ||
+    path === '/api/me' || path === '/api/reader-me'
+  if (openPaths) return next()
 
-  const token = getCookie(c.req.raw, SESSION_COOKIE)
-  const user = token ? await verifySession(c.env, token) : null
-  if (!user) {
-    if (path.startsWith('/api/')) return c.json({ ok: false, error: 'authentication required' }, 401)
-    return c.redirect('/login')
+  // Path 1: Microsoft SSO session (only checked if MS SSO is configured).
+  if (isAuthConfigured(c.env)) {
+    const msToken = getCookie(c.req.raw, SESSION_COOKIE)
+    const msUser = msToken ? await verifySession(c.env, msToken) : null
+    if (msUser) {
+      c.set('user' as never, msUser as never)
+      return next()
+    }
   }
-  c.set('user' as never, user as never)
-  return next()
+
+  // Path 2: reader access session (name + shared code, long-lived cookie).
+  const readerToken = getReaderCookie(c.req.raw)
+  const readerSession = readerToken ? await verifyReaderSession(c.env.DB, readerToken) : null
+  if (readerSession) {
+    c.set('reader' as never, readerSession as never)
+    await touchReaderSession(c.env.DB, readerSession.id)
+    return next()
+  }
+
+  if (path.startsWith('/api/')) return c.json({ ok: false, error: 'authentication required' }, 401)
+  const wasRevoked = !!readerToken // had a cookie but it no longer verifies -> code rotated or session revoked
+  return c.redirect(wasRevoked ? '/login?error=reader_revoked' : '/login')
 })
 
 app.get('/login', (c) => {
@@ -105,10 +138,212 @@ app.get('/auth/logout', (c) => {
 })
 
 app.get('/api/me', async (c) => {
-  if (!isAuthConfigured(c.env)) return c.json({ ok: true, configured: false, user: null })
-  const token = getCookie(c.req.raw, SESSION_COOKIE)
-  const user = token ? await verifySession(c.env, token) : null
-  return c.json({ ok: true, configured: true, user: user ? { email: user.email, name: user.name } : null })
+  // Reports who's viewing right now, across BOTH access paths, so the
+  // frontend can (a) greet the visitor by name either way and (b) hide
+  // editorial controls (Add/Manage Reports) from reader-access visitors
+  // — those stay staff-only, since readers should only ever view, not
+  // edit, the sensitive report content.
+  if (isAuthConfigured(c.env)) {
+    const token = getCookie(c.req.raw, SESSION_COOKIE)
+    const user = token ? await verifySession(c.env, token) : null
+    if (user) return c.json({ ok: true, configured: true, user: { email: user.email, name: user.name }, role: 'staff' })
+  }
+  const readerToken = getReaderCookie(c.req.raw)
+  const readerSession = readerToken ? await verifyReaderSession(c.env.DB, readerToken) : null
+  if (readerSession) {
+    return c.json({ ok: true, configured: isAuthConfigured(c.env), user: { name: readerSession.name }, role: 'reader' })
+  }
+  return c.json({ ok: true, configured: isAuthConfigured(c.env), user: null, role: 'staff' })
+})
+
+// Staff-or-admin check: Microsoft SSO session OR the admin dashboard
+// password session. Reader-access sessions never satisfy this — used
+// to gate editorial actions (uploading/editing/deleting edition
+// content) so WhatsApp-distributed reader access stays view-only.
+async function isStaffRequest(c: any): Promise<boolean> {
+  if (isAuthConfigured(c.env)) {
+    const msToken = getCookie(c.req.raw, SESSION_COOKIE)
+    const msUser = msToken ? await verifySession(c.env, msToken) : null
+    if (msUser) return true
+  }
+  const adminToken = getAdminCookie(c.req.raw)
+  if (adminToken && await verifyAdminSession(c.env, adminToken)) return true
+  return false
+}
+
+// -------------------------------------------------------------- reader access
+// Name + shared-code unlock for the WhatsApp-distributed report link.
+// See src/readerAuth.ts for the full rationale.
+app.post('/api/reader-access', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const name = (body.name || '').trim()
+  const code = (body.code || '').trim()
+  if (!name) return c.json({ ok: false, error: 'Please enter your name.' }, 400)
+  if (!code) return c.json({ ok: false, error: 'Please enter the access code.' }, 400)
+
+  const { code: expected } = await getReaderCode(c.env.DB)
+  if (code !== expected) {
+    return c.json({ ok: false, error: 'That access code is not correct. Please check with your director.' }, 401)
+  }
+
+  const ua = c.req.header('User-Agent') || ''
+  const { id, days } = await createReaderSession(c.env.DB, name, ua)
+  c.header('Set-Cookie', buildReaderSetCookie(id, days))
+  return c.json({ ok: true })
+})
+
+app.get('/api/reader-me', async (c) => {
+  const token = getReaderCookie(c.req.raw)
+  const session = token ? await verifyReaderSession(c.env.DB, token) : null
+  return c.json({ ok: true, reader: session ? { name: session.name, id: session.id } : null })
+})
+
+// Fire-and-forget activity beacon from the frontend (tab switches, sector
+// filters, exports, read-aloud, ask). Never blocks the reading UI.
+app.post('/api/track', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const readerToken = getReaderCookie(c.req.raw)
+  const readerSession = readerToken ? await verifyReaderSession(c.env.DB, readerToken) : null
+
+  let sessionId = ''
+  let name = ''
+  if (readerSession) {
+    sessionId = readerSession.id
+    name = readerSession.name
+  } else if (isAuthConfigured(c.env)) {
+    const msToken = getCookie(c.req.raw, SESSION_COOKIE)
+    const msUser = msToken ? await verifySession(c.env, msToken) : null
+    if (msUser) { sessionId = `ms:${msUser.sub}`; name = `${msUser.name} (staff)` }
+  }
+  if (!sessionId) return c.json({ ok: false }, 401)
+
+  const edition = (body.edition || '').toString().slice(0, 40)
+  const action = (body.action || '').toString().slice(0, 40)
+  const detail = (body.detail || '').toString()
+  if (!action) return c.json({ ok: false }, 400)
+
+  await logActivity(c.env.DB, sessionId, name, edition, action, detail)
+  return c.json({ ok: true })
+})
+
+// ------------------------------------------------------------------- admin
+// Standalone password gate for /admin/access (works even before
+// Microsoft SSO is configured). MS-signed-in staff can also reach it —
+// checked inline below rather than via the global auth middleware,
+// since /admin* is deliberately left out of that middleware's gate.
+async function isAdminRequest(c: any): Promise<boolean> {
+  const adminToken = getAdminCookie(c.req.raw)
+  if (adminToken && await verifyAdminSession(c.env, adminToken)) return true
+  if (isAuthConfigured(c.env)) {
+    const msToken = getCookie(c.req.raw, SESSION_COOKIE)
+    const msUser = msToken ? await verifySession(c.env, msToken) : null
+    if (msUser) return true
+  }
+  return false
+}
+
+app.get('/admin', (c) => c.redirect('/admin/access'))
+
+app.get('/admin/access', async (c) => {
+  const authed = await isAdminRequest(c)
+  return c.html((adminHtml as string).replace('__AUTHED__', authed ? 'true' : 'false'))
+})
+
+app.post('/api/admin-login', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const password = (body.password || '').toString()
+  const ok = await checkAdminPassword(c.env.DB, password)
+  if (!ok) return c.json({ ok: false, error: 'Incorrect password.' }, 401)
+  const session = await signAdminSession(c.env)
+  c.header('Set-Cookie', buildAdminSetCookie(session))
+  return c.json({ ok: true })
+})
+
+app.get('/admin/logout', (c) => {
+  c.header('Set-Cookie', buildAdminClearCookie())
+  return c.redirect('/admin/access')
+})
+
+app.post('/api/admin/change-password', async (c) => {
+  if (!(await isAdminRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const body = await c.req.json().catch(() => ({}))
+  const newPassword = (body.password || '').toString()
+  if (newPassword.length < 6) return c.json({ ok: false, error: 'Password must be at least 6 characters.' }, 400)
+  await changeAdminPassword(c.env.DB, newPassword)
+  return c.json({ ok: true })
+})
+
+app.get('/api/admin/readers', async (c) => {
+  if (!(await isAdminRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const rows = await c.env.DB.prepare(
+    `SELECT id, name, first_seen, last_seen, visit_count, revoked, code_version
+     FROM reader_sessions ORDER BY last_seen DESC`,
+  ).all()
+  const { version: currentVersion } = await getReaderCode(c.env.DB)
+  const readers = (rows.results || []).map((r: any) => ({
+    ...r,
+    active: !r.revoked && r.code_version === currentVersion,
+  }))
+  return c.json({ ok: true, readers, current_code_version: currentVersion })
+})
+
+app.get('/api/admin/reader/:id/activity', async (c) => {
+  if (!(await isAdminRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const id = c.req.param('id')
+  const rows = await c.env.DB.prepare(
+    `SELECT edition, action, detail, ts FROM activity_log WHERE session_id = ? ORDER BY ts DESC LIMIT 200`,
+  ).bind(id).all()
+  return c.json({ ok: true, activity: rows.results || [] })
+})
+
+app.post('/api/admin/reader/:id/revoke', async (c) => {
+  if (!(await isAdminRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const id = c.req.param('id')
+  await c.env.DB.prepare('UPDATE reader_sessions SET revoked = 1 WHERE id = ?').bind(id).run()
+  return c.json({ ok: true })
+})
+
+app.post('/api/admin/reader/:id/unrevoke', async (c) => {
+  if (!(await isAdminRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const id = c.req.param('id')
+  await c.env.DB.prepare('UPDATE reader_sessions SET revoked = 0 WHERE id = ?').bind(id).run()
+  return c.json({ ok: true })
+})
+
+app.get('/api/admin/code', async (c) => {
+  if (!(await isAdminRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const { code, version } = await getReaderCode(c.env.DB)
+  return c.json({ ok: true, code, version })
+})
+
+app.post('/api/admin/code', async (c) => {
+  if (!(await isAdminRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const body = await c.req.json().catch(() => ({}))
+  const newCode = (body.code || '').toString().trim()
+  if (!newCode || newCode.length < 4) return c.json({ ok: false, error: 'Code must be at least 4 characters.' }, 400)
+  const { version } = await getReaderCode(c.env.DB)
+  const newVersion = version + 1
+  await c.env.DB.prepare(
+    `INSERT INTO app_settings (key, value) VALUES ('reader_code', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).bind(newCode).run()
+  await c.env.DB.prepare(
+    `INSERT INTO app_settings (key, value) VALUES ('reader_code_version', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).bind(String(newVersion)).run()
+  return c.json({ ok: true, code: newCode, version: newVersion })
+})
+
+app.get('/api/admin/activity-summary', async (c) => {
+  if (!(await isAdminRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const rows = await c.env.DB.prepare(
+    `SELECT edition, action, detail, COUNT(*) as cnt
+     FROM activity_log
+     WHERE ts >= datetime('now', '-30 days')
+     GROUP BY edition, action, detail
+     ORDER BY edition DESC, cnt DESC`,
+  ).all()
+  return c.json({ ok: true, summary: rows.results || [] })
 })
 
 const MAX_PDF = 20 * 1024 * 1024
@@ -230,6 +465,7 @@ app.get('/api/edition/:id', async (c) => {
 })
 
 app.post('/api/edition/upload-pdf', async (c) => {
+  if (!(await isStaffRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
   const form = await c.req.formData()
   const file = form.get('pdf') as File | null
   const db = c.env.DB
@@ -288,6 +524,7 @@ app.post('/api/edition/upload-pdf', async (c) => {
 })
 
 app.put('/api/edition/:id', async (c) => {
+  if (!(await isStaffRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
   const id = c.req.param('id')
   const db = c.env.DB
   const editions = await loadEditions(db)
@@ -322,6 +559,7 @@ app.put('/api/edition/:id', async (c) => {
 })
 
 app.delete('/api/edition/:id', async (c) => {
+  if (!(await isStaffRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
   const id = c.req.param('id')
   const db = c.env.DB
   const row = await db.prepare('SELECT pdf FROM editions WHERE id = ?').bind(id).first<any>()

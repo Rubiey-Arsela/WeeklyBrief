@@ -75,6 +75,82 @@
   .login-form-box h1 { font-size: 26px; margin-bottom: 6px; color: var(--navy-900); font-weight: 700; }
   .login-form-box p.lede { font-size: 14px; color: var(--slate-600); margin-bottom: 28px; line-height: 1.5; }
 
+  /* Two access methods, switched with tabs */
+  .access-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--slate-100);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    margin-bottom: 24px;
+  }
+  .access-tab-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 9px 10px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--slate-600);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .access-tab-btn.active { background: var(--white); color: var(--navy-900); box-shadow: var(--shadow); }
+  .access-panel { display: none; }
+  .access-panel.active { display: block; }
+
+  .rd-field { margin-bottom: 16px; }
+  .rd-field label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--slate-600);
+    margin-bottom: 6px;
+    letter-spacing: 0.2px;
+  }
+  .rd-field input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid var(--slate-200);
+    border-radius: var(--radius-sm);
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--slate-800);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .rd-field input:focus {
+    outline: none;
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(0,168,150,0.12);
+  }
+  .rd-submit-btn {
+    width: 100%;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, var(--navy-900), var(--navy-700));
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .rd-submit-btn:hover { opacity: 0.92; }
+  .rd-submit-btn:disabled { opacity: 0.6; cursor: default; }
+  .rd-hint { font-size: 0.75rem; color: var(--slate-500); margin-top: 10px; line-height: 1.5; text-align: center; }
+  .rd-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    font-size: 0.8125rem;
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    line-height: 1.4;
+    display: none;
+  }
+
   .ms-signin-btn {
     display: flex;
     align-items: center;
@@ -238,23 +314,48 @@
       <div class="mvb-product-tag">Maida Vale Weekly Brief</div>
 
       <h1>Welcome back</h1>
-      <p class="lede">Sign in with your organisation's Microsoft 365 account to access this week's brief.</p>
+      <p class="lede" id="ledeText">Choose how you'd like to access this week's brief.</p>
 
       <div id="errorBanner" class="error-banner" style="display:none;"></div>
 
-      <a href="/auth/login" class="ms-signin-btn" id="msSignInBtn">
-        <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-          <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-          <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-          <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-        </svg>
-        Sign in with Microsoft
-      </a>
+      <div class="access-tabs">
+        <button class="access-tab-btn active" id="tabBtnReader" onclick="switchAccessTab('reader')">Reader Access</button>
+        <button class="access-tab-btn" id="tabBtnMs" onclick="switchAccessTab('ms')">Staff (Microsoft)</button>
+      </div>
 
-      <div id="unconfiguredNotice" class="fallback-notice" style="display:none; margin-top:20px;">
-        Microsoft sign-in has not been configured for this deployment yet.
-        Contact your administrator to complete setup.
+      <!-- ============ Reader Access panel (name + shared code) ============ -->
+      <div class="access-panel active" id="panelReader">
+        <div id="readerError" class="rd-error"></div>
+        <form id="readerForm" onsubmit="submitReaderAccess(event)">
+          <div class="rd-field">
+            <label for="readerName">Your name</label>
+            <input type="text" id="readerName" name="name" placeholder="e.g. Datin Aminah" autocomplete="name" required maxlength="80">
+          </div>
+          <div class="rd-field">
+            <label for="readerCode">Access code</label>
+            <input type="text" id="readerCode" name="code" placeholder="Enter the code shared with you" inputmode="numeric" autocomplete="one-time-code" required maxlength="12">
+          </div>
+          <button type="submit" class="rd-submit-btn" id="readerSubmitBtn">Continue</button>
+          <p class="rd-hint">You'll only need to do this once on this device. Contact your director if you don't have the code.</p>
+        </form>
+      </div>
+
+      <!-- ============ Microsoft SSO panel (for Al Bukhary / Arsela staff) ============ -->
+      <div class="access-panel" id="panelMs">
+        <a href="/auth/login" class="ms-signin-btn" id="msSignInBtn">
+          <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+          </svg>
+          Sign in with Microsoft
+        </a>
+        <p class="rd-hint">For Al Bukhary Group / Arsela Resources staff with a Microsoft 365 account.</p>
+        <div id="unconfiguredNotice" class="fallback-notice" style="display:none; margin-top:20px;">
+          Microsoft sign-in has not been configured for this deployment yet.
+          Contact your administrator to complete setup.
+        </div>
       </div>
 
       <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--slate-200)">
@@ -301,6 +402,50 @@
 
 </div>
 <script>
+  function switchAccessTab(which) {
+    const isReader = which === 'reader';
+    document.getElementById('tabBtnReader').classList.toggle('active', isReader);
+    document.getElementById('tabBtnMs').classList.toggle('active', !isReader);
+    document.getElementById('panelReader').classList.toggle('active', isReader);
+    document.getElementById('panelMs').classList.toggle('active', !isReader);
+    document.getElementById('ledeText').textContent = isReader
+      ? "Enter your name and the access code shared with you to open this week's brief."
+      : "Sign in with your organisation's Microsoft 365 account.";
+  }
+
+  async function submitReaderAccess(e) {
+    e.preventDefault();
+    const btn = document.getElementById('readerSubmitBtn');
+    const errEl = document.getElementById('readerError');
+    errEl.style.display = 'none';
+    const name = document.getElementById('readerName').value.trim();
+    const code = document.getElementById('readerCode').value.trim();
+    if (!name || !code) return;
+    btn.disabled = true;
+    btn.textContent = 'Checking…';
+    try {
+      const resp = await fetch('/api/reader-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, code }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        window.location.href = '/';
+      } else {
+        errEl.textContent = data.error || 'That code was not recognised. Please check with your director.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Continue';
+      }
+    } catch (err) {
+      errEl.textContent = 'Something went wrong. Please check your connection and try again.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Continue';
+    }
+  }
+
   (function () {
     const params = new URLSearchParams(window.location.search);
     const err = params.get('error');
@@ -311,12 +456,16 @@
         domain_not_allowed: 'This Microsoft account is not authorised for this application. Please use your organisation account.',
         auth_failed: 'Sign-in failed. Please try again.',
         not_configured: 'Microsoft sign-in has not been configured for this deployment yet.',
+        reader_revoked: 'Your reader access was revoked or the access code was changed. Please re-enter the current code.',
       };
       banner.textContent = messages[err] || 'Sign-in failed. Please try again.';
       banner.style.display = 'block';
       if (err === 'not_configured') {
         document.getElementById('msSignInBtn').style.display = 'none';
         document.getElementById('unconfiguredNotice').style.display = 'block';
+      }
+      if (err === 'reader_revoked') {
+        switchAccessTab('reader');
       }
     }
   })();

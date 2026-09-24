@@ -1642,12 +1642,14 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
 <div class="admin-bar no-print">
   <div class="admin-bar-inner">
     <div class="admin-actions">
-      <button class="admin-btn primary" onclick="openModal('add')">
-        <span class="icon">+</span> Add Report
-      </button>
-      <button class="admin-btn" onclick="openModal('manage')">
-        <span class="icon">⚙</span> Manage Reports
-      </button>
+      <span id="adminActions" style="display:inline-flex;gap:8px;">
+        <button class="admin-btn primary" onclick="openModal('add')">
+          <span class="icon">+</span> Add Report
+        </button>
+        <button class="admin-btn" onclick="openModal('manage')">
+          <span class="icon">⚙</span> Manage Reports
+        </button>
+      </span>
       <button class="admin-btn" onclick="startTour(true)" title="Replay the introduction tour">
         <span class="icon">?</span> Help &amp; Tour
       </button>
@@ -1887,6 +1889,26 @@ let editions = [];
 let isReading = false;
 let utterance = null;
 
+/* ---------- Reader activity tracking (admin visibility) ----------
+   Fire-and-forget beacon: never blocks or delays the reading UI, and
+   silently no-ops if the request fails (e.g. offline). Tied server-side
+   to whichever session cookie (reader access or Microsoft SSO) the
+   visitor is already using — no extra prompt is ever shown here. */
+function trackActivity(action, detail) {
+  try {
+    fetch('/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        edition: currentEdition ? currentEdition.id : '',
+        action,
+        detail: detail || '',
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (e) { /* ignore */ }
+}
+
 /* ---------- Tab Switching ---------- */
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1894,6 +1916,7 @@ function switchTab(tab) {
   document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
   document.getElementById(`tab-${tab}`).classList.add('active');
   if (isReading) stopReadAloud();
+  trackActivity('view_tab', tab);
 }
 
 /* ---------- Load Edition ---------- */
@@ -1990,6 +2013,10 @@ function setReportFilter(sector) {
   renderFilterBar();
   renderReport();
   document.getElementById('reportBody').scrollIntoView({behavior: 'smooth', block: 'start'});
+  if (currentEdition && currentEdition.sections) {
+    const label = sector === 'all' ? 'All sectors' : (currentEdition.sections[sector] || {}).title || String(sector);
+    trackActivity('view_sector', label);
+  }
 }
 
 function renderReport() {
@@ -2186,6 +2213,7 @@ function submitAsk() {
 
 async function askQuestion(question) {
   document.getElementById('askInput').value = question;
+  trackActivity('ask', question.slice(0, 200));
   const answerEl = document.getElementById('askAnswer');
   answerEl.innerHTML = '<div class="ask-answer-empty">Searching sourced rows…</div>';
 
@@ -2397,15 +2425,23 @@ function loadVoices() {
 
 async function loadCurrentUser() {
   const el = document.getElementById('adminUser');
-  if (!el) return;
   try {
     const me = await (await fetch('/api/me')).json();
-    if (me.configured && me.user) {
+    // Reader-access visitors (name + shared code) never see the
+    // editorial controls — Add/Manage Reports stay staff-only, since
+    // readers should only ever view the brief, not edit its content.
+    const actionsBar = document.getElementById('adminActions');
+    if (actionsBar) actionsBar.style.display = me.role === 'reader' ? 'none' : '';
+
+    if (!el) return;
+    if (me.role === 'reader' && me.user) {
+      el.innerHTML = `<span class="au-name">Viewing as <strong>${esc(me.user.name)}</strong></span>`;
+    } else if (me.configured && me.user) {
       el.innerHTML = `<span class="au-name">Signed in as <strong>${esc(me.user.name || me.user.email)}</strong></span><a class="au-signout" href="/auth/logout">Sign out</a>`;
     } else {
       el.innerHTML = '';
     }
-  } catch (e) { el.innerHTML = ''; }
+  } catch (e) { if (el) el.innerHTML = ''; }
 }
 
 /* ---------- Onboarding Tour ---------- */
@@ -2513,6 +2549,7 @@ function toggleReadAloud() { isReading ? stopReadAloud() : startReadAloud(); }
 
 function startReadAloud() {
   if (!currentEdition) return;
+  trackActivity('read_aloud', reportFilter === 'all' ? 'All sectors' : ((currentEdition.sections || [])[reportFilter] || {}).title || '');
   isReading = true; ttsStop = false;
   ttsPrefetch = new Map();
   document.getElementById('readAloudBtn').classList.add('playing');
@@ -2670,6 +2707,7 @@ document.addEventListener('click', closeExportMenu);
 function doExport(fmt) {
   closeExportMenu();
   if (!currentEdition) return;
+  trackActivity('export', fmt);
   window.location.href = `/api/export/${currentEdition.id}.${fmt}`;
 }
 
@@ -3396,6 +3434,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadVoices();
   loadCurrentUser();
   loadEdition('latest');
+  trackActivity('view_tab', 'summary'); // initial landing tab, before any switchTab() click
   const body = document.getElementById('reportBody');
   if (body) {
     body.addEventListener('click', placeNoteAt);
