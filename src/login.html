@@ -8,18 +8,22 @@
 <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
 <style>
   :root {
-    --navy-900: #102320;
-    --navy-800: #17302d;
-    --navy-700: #295650;
-    --navy-600: #316860;
-    --navy-500: #3f837a;
-    --teal: #00A896;
+    /* Arsela Resources official brand palette (App Branding Guidelines) */
+    --navy-900: #001F3D;   /* Primary Navy */
+    --navy-800: #0a2f52;
+    --navy-700: #13436B;   /* Secondary Blue */
+    --navy-600: #0f5d78;
+    --navy-500: #0a7d87;
+    --teal: #00A896;       /* Accent Teal */
+    --success: #16A34A;
+    --warning: #F59E0B;
+    --danger: #EF4444;
     --slate-800: #1e293b;
     --slate-600: #475569;
     --slate-500: #64748b;
     --slate-300: #cbd5e1;
-    --slate-200: #e2e8f0;
-    --slate-100: #f1f5f9;
+    --slate-200: #E2E6F0;  /* Border Grey */
+    --slate-100: #F4F6F8;  /* Background Grey */
     --white: #ffffff;
     --radius: 12px;
     --radius-sm: 8px;
@@ -90,7 +94,7 @@
   }
   .ms-signin-btn:hover {
     box-shadow: var(--shadow);
-    border-color: var(--slate-300);
+    border-color: var(--navy-500);
   }
   .ms-signin-btn svg { flex-shrink: 0; }
 
@@ -128,7 +132,7 @@
 
   /* Right: gradient visual panel with a floating preview card, à la Coprojecta */
   .login-panel-visual {
-    background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-700) 60%, var(--teal) 130%);
+    background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-700) 55%, var(--teal) 130%);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -271,17 +275,17 @@
       <div class="auth-preview-card">
         <h4><i class="fas fa-newspaper" style="margin-right:6px;opacity:0.7"></i>This Week's Brief</h4>
         <div class="auth-preview-row">
-          <div class="auth-preview-dot" style="background:#3B82F6"></div>
+          <div class="auth-preview-dot" style="background:var(--danger)"></div>
           <span class="auth-preview-title">Ports, Logistics &amp; Infrastructure</span>
-          <span class="auth-preview-badge" style="background:rgba(59,130,246,0.2);color:#93C5FD">High Priority</span>
+          <span class="auth-preview-badge" style="background:rgba(239,68,68,0.2);color:#FCA5A5">High Priority</span>
         </div>
         <div class="auth-preview-row">
-          <div class="auth-preview-dot" style="background:#22C55E"></div>
+          <div class="auth-preview-dot" style="background:var(--success)"></div>
           <span class="auth-preview-title">Energy &amp; Sustainability</span>
-          <span class="auth-preview-badge" style="background:rgba(34,197,94,0.2);color:#86EFAC">Updated</span>
+          <span class="auth-preview-badge" style="background:rgba(22,163,74,0.2);color:#86EFAC">Updated</span>
         </div>
         <div class="auth-preview-row">
-          <div class="auth-preview-dot" style="background:#F59E0B"></div>
+          <div class="auth-preview-dot" style="background:var(--warning)"></div>
           <span class="auth-preview-title">Banking &amp; Financial Services</span>
           <span class="auth-preview-badge" style="background:rgba(245,158,11,0.2);color:#FCD34D">Watching</span>
         </div>
