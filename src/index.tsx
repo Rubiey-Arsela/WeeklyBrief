@@ -75,6 +75,17 @@ app.use('*', async (c, next) => {
     return next()
   }
 
+  // Path 3: admin dashboard password session (src/adminAuth.ts). This is a
+  // genuine, independent sign-in (not just an elevation of reader access),
+  // so a visitor who only ever completed /admin's password screen must
+  // still be able to reach every /api/* route (e.g. upload-pdf) rather
+  // than being blocked here before isStaffRequest() even gets a chance to
+  // recognise the same cookie further down the stack.
+  const adminToken = getAdminCookie(c.req.raw)
+  if (adminToken && await verifyAdminSession(c.env, adminToken)) {
+    return next()
+  }
+
   if (path.startsWith('/api/')) return c.json({ ok: false, error: 'authentication required' }, 401)
   const wasRevoked = !!readerToken // had a cookie but it no longer verifies -> code rotated or session revoked
   return c.redirect(wasRevoked ? '/login?error=reader_revoked' : '/login')
