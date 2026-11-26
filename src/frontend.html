@@ -2942,13 +2942,20 @@ function outletDomain(outletName) {
 }
 
 // Builds a clickable "Reuters" (etc.) link for a news item, or '' if there's
-// no source to link. Falls back to a plain (undomained) Google search of the
-// headline + outlet name when the outlet isn't in the known-domain table
-// above, so every sourced item is still one click from a search, not a dead
-// end -- new/rare outlets just don't get the site: scoping.
+// no source to link. When the item carries an exact source_url (backfilled
+// from a Reference List supplied by Rubiey, or extracted directly for a
+// future edition), link straight to that -- it's the real article, not a
+// search. Otherwise falls back to a Google search scoped to the outlet's own
+// domain (or a plain, undomained search of headline + outlet when the outlet
+// isn't in the known-domain table above), so every sourced item is still one
+// click from a search, not a dead end.
 function sourceArticleLink(item) {
   const source = item.source || '';
   if (!source) return '';
+  const exactUrl = item.source_url || '';
+  if (exactUrl) {
+    return `<a class="source-link" href="${escapeHtml(exactUrl)}" target="_blank" rel="noopener" title="Open the original article">${escapeHtml(source)} <span class="sl-icon">\u2197</span></a>`;
+  }
   const outlet = primaryOutlet(source);
   if (!outlet) return '';
   const domain = outletDomain(outlet);

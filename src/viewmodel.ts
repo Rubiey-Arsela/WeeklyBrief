@@ -92,6 +92,7 @@ export function buildSections(ed: Edition): ViewSection[] {
       grade,
       body: parts.filter(Boolean).join('<br><br>'),
       source: item.source || '',
+      source_url: item.source_url || undefined,
       impact: GRADE_CLASS[grade.toLowerCase()] || 'low',
       impact_label: grade,
     })

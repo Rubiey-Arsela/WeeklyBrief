@@ -64,6 +64,11 @@ export interface NewsItem {
   regulatory?: string
   flag?: string
   entities?: string[]
+  // Exact URL of the original source article, when known (backfilled from a
+  // Reference List supplied alongside the weekly PDF, or extracted directly
+  // in future editions). Falls back to a Google-search link in the frontend
+  // (see sourceArticleLink() in frontend.html) when this is absent.
+  source_url?: string
 }
 
 export interface PulseRow {
@@ -112,6 +117,7 @@ export interface ViewSectionItem {
   grade: string
   body: string
   source: string
+  source_url?: string
   impact: string
   impact_label: string
 }
