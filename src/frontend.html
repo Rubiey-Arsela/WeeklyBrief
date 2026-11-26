@@ -582,6 +582,14 @@ body {
   margin-top: var(--space-sm);
   font-style: italic;
 }
+.source-link {
+  color: var(--navy-600);
+  text-decoration: none;
+  font-style: normal;
+  border-bottom: 1px dotted var(--navy-400);
+}
+.source-link:hover { color: var(--navy-700); border-bottom-style: solid; }
+.source-link .sl-icon { font-size: 0.6875rem; margin-left: 2px; }
 
 /* Read-aloud */
 .read-aloud-bar {
@@ -1605,14 +1613,112 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
 
 .ra-highlight-btn.active { background: var(--navy-700); color: var(--white); }
 
-/* ---------- Responsive ---------- */
+/* ========================================================================
+   RESPONSIVE / MOBILE
+   Three breakpoints: 768px (tablet/small-laptop), 540px (phone), 380px
+   (small phone). Phones get stacked layouts, full-width tap targets,
+   horizontally-scrollable tables (never squeezed/broken), and a bottom
+   sheet style modal instead of a centered dialog.
+   ======================================================================== */
 @media (max-width: 768px) {
+  html { font-size: 15px; }
   .masthead-inner { flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
-  .masthead-meta { flex-wrap: wrap; }
+  .masthead-brand { width: 100%; justify-content: space-between; }
+  .masthead-meta { flex-wrap: wrap; gap: var(--space-sm) var(--space-md); width: 100%; }
   .summary-grid { grid-template-columns: 1fr; }
   .main { padding: var(--space-lg) var(--space-md); }
-  .tab-nav-inner { padding: 0 var(--space-md); }
+  .tab-nav-inner { padding: 0 var(--space-md); -webkit-overflow-scrolling: touch; }
+  .tab-btn { padding: var(--space-sm) var(--space-md); font-size: 0.8125rem; }
   .report-header h2 { font-size: 1.5rem; }
+
+  /* Admin / actions bar: stack and let buttons wrap instead of clipping. */
+  .admin-bar-inner { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
+  .admin-actions { flex-wrap: wrap; }
+  .admin-actions .admin-btn { flex: 1 1 auto; justify-content: center; }
+  .admin-user { justify-content: space-between; }
+
+  /* Report action bar (read-aloud / view switch / notes / export):
+     already wraps via flex-wrap, just tighten spacing and let each
+     control's tap target stay full height on touch. */
+  .read-aloud-bar { padding: var(--space-sm); gap: var(--space-sm); }
+  .view-switch { width: 100%; }
+  .view-btn-sw { flex: 1; text-align: center; padding: 8px 10px; }
+  .ra-note-btn, .ra-export-btn, .read-aloud-btn { padding: 8px 12px; }
+  .ra-speed { display: none; } /* playback-speed slider: low value on a small screen, saves a row */
+
+  .report-pdf-attachment { flex-wrap: wrap; }
+  .report-pdf-attachment .pdf-actions { width: 100%; justify-content: stretch; }
+  .report-pdf-attachment .pdf-actions a,
+  .report-pdf-attachment .pdf-actions button { flex: 1; text-align: center; }
+
+  /* Sector filter chips: horizontal scroll strip instead of wrapping into
+     a wall of pills that pushes the report down. */
+  .report-filter-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .filter-label { display: none; }
+  .filter-chip { flex: 0 0 auto; }
+
+  /* Report tables (Table reading mode + Indicators + export view): make
+     them horizontally scrollable as a whole rather than letting columns
+     crush text or overflow the viewport unscrollably. */
+  .report-table-view,
+  .pulse-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .report-table, .pulse-table { font-size: 0.75rem; }
+  .report-table .col-title { min-width: 140px; }
+  .report-table .col-body { max-width: none; min-width: 220px; }
+
+  .visual-grid { grid-template-columns: 1fr; }
+
+  .ask-input-row { flex-direction: column; }
+  .ask-submit { width: 100%; }
+  .ask-suggested-chips { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .ask-chip { flex: 0 0 auto; }
+
+  /* Admin "Manage Reports" rows: stack info above actions instead of
+     squeezing both onto one line. */
+  .admin-report-item { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
+  .admin-report-info { flex-wrap: wrap; }
+  .admin-report-actions { justify-content: flex-end; }
+
+  /* Modal: full-width bottom sheet instead of a centered fixed-width box,
+     so form fields and the PDF drop-zone get the full screen width. */
+  .modal-overlay { align-items: flex-end; }
+  .modal { max-width: 100%; width: 100%; max-height: 92vh; border-radius: 12px 12px 0 0; }
+  .pdf-drop-zone { padding: var(--space-lg); }
+
+  /* Sticky notes are positioned/dragged with mouse coordinates and don't
+     translate to touch — hide them on phones rather than show a broken,
+     undraggable box; the underlying report text is unaffected. */
+  .note-bubble { display: none !important; }
+  body.note-mode .report-body { outline: none; }
+
+  .tour-card { width: calc(100vw - 32px); }
+}
+
+@media (max-width: 540px) {
+  .masthead-brand h1 { font-size: 1.125rem; white-space: normal; }
+  .masthead-meta { font-size: 0.75rem; }
+  .powered-by-arsela { display: none; } /* reclaim header space on phones; full masthead still shows on tablet+ */
+  .summary-paragraph { font-size: 0.9375rem; }
+  .report-header h2 { font-size: 1.25rem; }
+  .report-item-title { font-size: 0.9375rem; }
+  .report-item-body { font-size: 0.9375rem; }
+  .speed-read-list { grid-template-columns: 1fr; }
+  .watch-delta, .carry-forward, .sector-heat { font-size: 0.8125rem; }
+  .export-dropdown { right: 0; left: auto; }
+}
+
+@media (max-width: 380px) {
+  .admin-btn { font-size: 0.75rem; padding: 6px 10px; }
+  .tab-btn { padding: var(--space-sm) var(--space-sm); font-size: 0.75rem; }
+  .tab-btn .tab-count { display: none; }
+}
+
+/* Touch devices: swap hover-only affordances for always-visible ones and
+   make tap targets comfortably large regardless of viewport width. */
+@media (hover: none) {
+  .filter-chip, .ask-chip, .admin-btn, .modal-btn, .view-btn-sw,
+  .ra-note-btn, .ra-export-btn, .read-aloud-btn { min-height: 40px; }
+  .source-link { border-bottom-style: solid; } /* dotted underline is hard to see without hover affordance */
 }
 
 /* ---------- Utility ---------- */
@@ -2064,7 +2170,7 @@ function renderReport() {
             ${item.impact ? `<span class="impact-badge ${item.impact}">${item.impact_label || item.impact}</span>` : ''}
           </div>
           <div class="report-item-body" data-item-key="${itemKey(si, ii)}">${item.body}</div>
-          ${item.source ? `<div class="report-item-source">Source: ${item.source}</div>` : ''}
+          ${item.source ? `<div class="report-item-source">Source: ${sourceArticleLink(item)}</div>` : ''}
         </div>
       `).join('')}
     </div>
@@ -2753,7 +2859,7 @@ function renderTableView(sections) {
         <td class="col-title">${item.title}</td>
         <td class="col-body">${plain}</td>
         <td>${item.impact ? `<span class="impact-badge ${item.impact}">${item.impact_label || item.impact}</span>` : '\u2014'}</td>
-        <td class="col-source">${item.source || '\u2014'}</td>
+        <td class="col-source">${item.source ? sourceArticleLink(item) : '\u2014'}</td>
       </tr>`;
     });
   });
@@ -2777,7 +2883,7 @@ function renderVisualView(sections) {
         </div>
         <div class="vc-foot">
           <span class="impact-badge ${item.impact}">${item.impact_label || item.impact}</span>
-          <span class="rt-src">${(item.source || '').split(',')[0]}</span>
+          <span class="rt-src">${item.source ? sourceArticleLink(item) : ''}</span>
         </div>
       </div>`);
   }));
@@ -2788,6 +2894,74 @@ function stripTags(s) {
   const d = document.createElement('div');
   d.innerHTML = s || '';
   return (d.textContent || '').trim();
+}
+
+/* ---------- Source -> original article link ----------
+   The source PDFs don't carry the original article's URL (a citation like
+   "Reuters, 13 Nov 2026" is text, not a link) -- unpdf found zero embedded
+   hyperlinks across every weekly brief checked. So this can't point at the
+   exact article page directly. The closest honest, reliably-correct
+   alternative: a Google search scoped to that outlet's own domain (e.g.
+   site:reuters.com) with the headline as the query. One click from there
+   almost always lands on the actual article, since a full headline is
+   normally unique enough to be the top (often only) result. */
+const OUTLET_DOMAINS = {
+  'reuters': 'reuters.com',
+  'the star': 'thestar.com.my',
+  'the edge': 'theedgemalaysia.com',
+  'bernama': 'bernama.com',
+  'malay mail': 'malaymail.com',
+  'nst': 'nst.com.my',
+  'new straits times': 'nst.com.my',
+  'bloomberg': 'bloomberg.com',
+  'free malaysia today': 'freemalaysiatoday.com',
+  'fmt': 'freemalaysiatoday.com',
+  'bank negara malaysia': 'bnm.gov.my',
+  'bnm': 'bnm.gov.my',
+  'department of statistics malaysia': 'dosm.gov.my',
+  'dosm': 'dosm.gov.my',
+  'mpob': 'mpob.gov.my',
+  'bursa malaysia': 'bursamalaysia.com',
+  "paul tan's automotive news": 'paultan.org',
+  'paul tan': 'paultan.org',
+  'the sun': 'thesundaily.my',
+};
+
+// A "source" citation can name more than one outlet (e.g. "Reuters/The Edge",
+// "Bernama via The Star", "The Star and Bernama") when the same news was
+// corroborated by several. Take the first outlet named -- it's consistently
+// the lead citation in this template -- and strip any trailing date so only
+// the outlet name is left to match against OUTLET_DOMAINS.
+function primaryOutlet(source) {
+  const first = (source || '').split(/[,/]| via | and /i)[0].trim();
+  return first.replace(/\s*\d{1,2}\s+\w+\.?\s+\d{4}\s*$/, '').trim();
+}
+
+function outletDomain(outletName) {
+  return OUTLET_DOMAINS[(outletName || '').toLowerCase()] || null;
+}
+
+// Builds a clickable "Reuters" (etc.) link for a news item, or '' if there's
+// no source to link. Falls back to a plain (undomained) Google search of the
+// headline + outlet name when the outlet isn't in the known-domain table
+// above, so every sourced item is still one click from a search, not a dead
+// end -- new/rare outlets just don't get the site: scoping.
+function sourceArticleLink(item) {
+  const source = item.source || '';
+  if (!source) return '';
+  const outlet = primaryOutlet(source);
+  if (!outlet) return '';
+  const domain = outletDomain(outlet);
+  const headline = (item.title || '').replace(/\s+/g, ' ').trim();
+  const q = domain ? `site:${domain} ${headline}` : `${headline} ${outlet}`;
+  const url = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+  return `<a class="source-link" href="${url}" target="_blank" rel="noopener" title="Search for the original ${outlet} article">${escapeHtml(source)} <span class="sl-icon">\u2197</span></a>`;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
 }
 
 /* ---------- Sticky notes ---------- */
