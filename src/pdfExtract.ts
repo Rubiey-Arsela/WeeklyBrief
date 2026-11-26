@@ -152,10 +152,11 @@ const MALAYSIA_HEADS = [
   'Financial Services Sector',
 ]
 
-function findHeadingIdx(body: string, title: string, fromIdx: number): number {
+function findHeadingIdx(body: string, title: string, fromIdx: number, toIdx?: number): number {
   const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
   const re = new RegExp('\\d{1,2}\\.\\s*' + escaped)
-  const m = re.exec(body.slice(fromIdx))
+  const haystack = toIdx !== undefined ? body.slice(fromIdx, toIdx) : body.slice(fromIdx)
+  const m = re.exec(haystack)
   return m ? fromIdx + m.index : -1
 }
 
@@ -314,11 +315,22 @@ export async function extractEdition(
   const idxAgri = findHeadingIdx(body, MALAYSIA_HEADS[5], idxAuto)
   const idxEnergy = findHeadingIdx(body, MALAYSIA_HEADS[6], idxAgri)
   const idxDigital = findHeadingIdx(body, MALAYSIA_HEADS[7], idxEnergy)
-  const idxProp = findHeadingIdx(body, MALAYSIA_HEADS[8], idxDigital)
-  const idxAviation = findHeadingIdx(body, MALAYSIA_HEADS[9], idxProp)
-  const idxFinance = findHeadingIdx(body, MALAYSIA_HEADS[10], idxAviation)
 
-  const idxList = [idxPulse, idxStruct, idxLocal, idxPorts, idxAuto, idxAgri, idxEnergy, idxDigital, idxProp, idxAviation, idxFinance]
+  // The last three Malaysia subsections (Property / Aviation / Financial
+  // Services) have appeared in a different print order between editions
+  // (e.g. "Aviation Sector" ahead of "Property Sector" in the 9/13 and
+  // 11/20 2026 issues) even though their own numbering inside each PDF is
+  // still internally consistent. Rather than assume one fixed order, find
+  // each of those three headings independently anywhere after Digital
+  // Economy, then sort by their actual position in the body so chunk
+  // boundaries are correct regardless of which order this issue printed
+  // them in.
+  const tailHeads = [MALAYSIA_HEADS[8], MALAYSIA_HEADS[9], MALAYSIA_HEADS[10]] // Property, Aviation, Financial Services
+  const tailFound = tailHeads
+    .map((title) => ({ title, idx: findHeadingIdx(body, title, idxDigital, idxWatch) }))
+    .sort((a, b) => a.idx - b.idx)
+
+  const idxList = [idxPulse, idxStruct, idxLocal, idxPorts, idxAuto, idxAgri, idxEnergy, idxDigital, ...tailFound.map((t) => t.idx)]
   if (idxList.some((i) => i === -1)) {
     throw new Error('Could not locate one or more Malaysia subsection headings in the PDF body.')
   }
@@ -335,10 +347,10 @@ export async function extractEdition(
     'Malaysia - 5. Automotive/Services Sector': body.slice(idxAuto, idxAgri),
     'Malaysia - 6. Agribusiness/Plantation/Food Security Sector': body.slice(idxAgri, idxEnergy),
     'Malaysia - 7. Energy/Utilities/Sustainability Sector': body.slice(idxEnergy, idxDigital),
-    'Malaysia - 8. Digital Economy/Technology/Media Sector': body.slice(idxDigital, idxProp),
-    'Malaysia - 9. Property Sector': body.slice(idxProp, idxAviation),
-    'Malaysia - 10. Aviation Sector': body.slice(idxAviation, idxFinance),
-    'Malaysia - 11. Financial Services Sector': body.slice(idxFinance, idxWatch),
+    'Malaysia - 8. Digital Economy/Technology/Media Sector': body.slice(idxDigital, tailFound[0].idx),
+    [`Malaysia - 9. ${tailFound[0].title}`]: body.slice(tailFound[0].idx, tailFound[1].idx),
+    [`Malaysia - 10. ${tailFound[1].title}`]: body.slice(tailFound[1].idx, tailFound[2].idx),
+    [`Malaysia - 11. ${tailFound[2].title}`]: body.slice(tailFound[2].idx, idxWatch),
   }
   const watchChunk = body.slice(idxWatch)
 
