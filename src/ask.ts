@@ -56,6 +56,53 @@ function scoreItem(item: Edition['items'][number], entNames: Record<string, stri
   return s
 }
 
+export interface SearchHit {
+  score: number
+  edition_id: string
+  edition_label: string
+  edition_date: string
+  section: string
+  headline: string
+  grade: string
+  snippet: string
+  source: string
+  source_url?: string
+}
+
+// Archive search — a distinct feature from Ask: no narration, no "in
+// brief" synthesis, just a ranked list of the actual matching items across
+// every loaded edition, so a reader can find "which week did we cover
+// X" without having to flip through editions one at a time.
+export function searchArchive(editions: Edition[], q: string, limit = 30): SearchHit[] {
+  const query = (q || '').trim()
+  if (!query) return []
+  const qtok = tokens(query)
+  if (!qtok.length) return []
+  const sorted = [...editions].sort((a, b) => (a.date < b.date ? 1 : -1)) // newest first
+  const hits: SearchHit[] = []
+  for (const ed of sorted) {
+    for (const item of ed.items || []) {
+      const s = scoreItem(item, {}, qtok)
+      if (s <= 0) continue
+      const plain = (item.summary || '').replace(/<[^>]+>/g, '')
+      hits.push({
+        score: s,
+        edition_id: ed.id,
+        edition_label: ed.label || ed.id,
+        edition_date: ed.date,
+        section: item.section || '',
+        headline: item.headline || '',
+        grade: item.grade || '',
+        snippet: plain.length > 220 ? plain.slice(0, 220) + '…' : plain,
+        source: item.source || '',
+        source_url: item.source_url || undefined,
+      })
+    }
+  }
+  hits.sort((a, b) => b.score - a.score || (a.edition_date < b.edition_date ? 1 : -1))
+  return hits.slice(0, limit)
+}
+
 export function ask(
   corpus: Corpus,
   editions: Edition[],

@@ -6,7 +6,7 @@
 
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow,
-  TableCell, WidthType, AlignmentType, BorderStyle,
+  TableCell, WidthType, AlignmentType, BorderStyle, ExternalHyperlink,
 } from 'docx'
 import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from 'pdf-lib'
 import type { ViewModel, Note } from './types'
@@ -98,9 +98,24 @@ export async function exportDocx(vm: ViewModel, notes: Note[]): Promise<Uint8Arr
       docChildren.push(new Paragraph({ children: runs }))
       docChildren.push(new Paragraph({ text: plain(item.body) }))
       if (item.source) {
-        docChildren.push(new Paragraph({
-          children: [new TextRun({ text: 'Source: ' + item.source, italics: true, size: 16, color: '64748B' })],
-        }))
+        // When the item carries an exact source_url (backfilled from a
+        // Reference List or extracted directly), make "Source: X" a real
+        // clickable hyperlink in the Word doc instead of plain italic text
+        // the reader has to copy-search for themselves.
+        const sourceRun = new TextRun({ text: 'Source: ' + item.source, italics: true, size: 16, color: '64748B' })
+        if (item.source_url) {
+          docChildren.push(new Paragraph({
+            children: [
+              new TextRun({ text: 'Source: ', italics: true, size: 16, color: '64748B' }),
+              new ExternalHyperlink({
+                link: item.source_url,
+                children: [new TextRun({ text: item.source, italics: true, size: 16, color: '295650', underline: {} })],
+              }),
+            ],
+          }))
+        } else {
+          docChildren.push(new Paragraph({ children: [sourceRun] }))
+        }
       }
     }
   }

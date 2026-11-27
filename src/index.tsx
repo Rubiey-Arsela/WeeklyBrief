@@ -3,7 +3,7 @@ import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import type { AppEnv, Corpus, Edition, Note, Highlight, PdfMeta } from './types'
 import { viewModel, weekOf, tokens, isoWeek } from './viewmodel'
-import { ask } from './ask'
+import { ask, searchArchive } from './ask'
 import { VOICES, synthesise } from './tts'
 import { exportDocx, exportPdf } from './export'
 import { extractEdition } from './pdfExtract'
@@ -659,6 +659,17 @@ app.post('/api/ask', async (c) => {
   const corpus = await loadCorpus(db)
   const editions = await loadEditions(db)
   return c.json(ask(corpus, editions, q, { editionId, searchAll }))
+})
+
+// --------------------------------------------------------------------- search
+// Archive search across every loaded edition — distinct from /api/ask:
+// returns a ranked list of the actual matching items (no synthesis), so a
+// reader can find "which week did we cover X" directly.
+app.get('/api/search', async (c) => {
+  const q = c.req.query('q') || ''
+  const db = c.env.DB
+  const editions = await loadEditions(db)
+  return c.json({ query: q, hits: searchArchive(editions, q) })
 })
 
 // ---------------------------------------------------------------------- notes
