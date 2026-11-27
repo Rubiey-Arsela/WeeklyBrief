@@ -92,10 +92,13 @@ app.use('*', async (c, next) => {
 })
 
 app.get('/login', (c) => {
-  if (!isAuthConfigured(c.env)) {
-    return c.html((loginHtml as string).replace('</body>', '<script>if(!location.search.includes("error="))location.search="error=not_configured";</script></body>'))
-  }
-  return c.html(loginHtml as string)
+  // Tell the client, quietly, whether Microsoft SSO is set up -- no redirect,
+  // no banner on arrival. The page only surfaces this if someone actually
+  // clicks the Staff (Microsoft) tab (see login.html's switchAccessTab()).
+  // Reader Access is this deployment's primary, always-configured path, so
+  // the first thing a visitor sees must never be an error banner.
+  const flag = `<script>window.__MS_CONFIGURED__ = ${isAuthConfigured(c.env) ? 'true' : 'false'};</script>`
+  return c.html((loginHtml as string).replace('</head>', `${flag}</head>`))
 })
 
 app.get('/auth/login', async (c) => {
@@ -647,10 +650,15 @@ app.get('/pdf/:name', async (c) => {
 app.post('/api/ask', async (c) => {
   const body = await c.req.json().catch(() => ({}))
   const q = body.query || body.q || ''
+  // Locks the answer to whichever edition the reader currently has open
+  // (the Report tab's edition id) unless they explicitly flip on "search
+  // all issues" — see src/ask.ts for the full rationale.
+  const editionId = (body.edition_id || body.editionId || '').toString() || undefined
+  const searchAll = !!body.search_all || !!body.searchAll
   const db = c.env.DB
   const corpus = await loadCorpus(db)
   const editions = await loadEditions(db)
-  return c.json(ask(corpus, editions, q))
+  return c.json(ask(corpus, editions, q, { editionId, searchAll }))
 })
 
 // ---------------------------------------------------------------------- notes

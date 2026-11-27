@@ -132,6 +132,11 @@ export interface PulseViewItem {
   current: string | number
   prior: string | number
   change: number | string
+  // Arrow/colour derived purely from comparing `current` and `prior` at
+  // render time — computed once in buildIndicators() and trusted as-is by
+  // the frontend, so the badge can never disagree with the two values
+  // printed beside it.
+  dir: 'up' | 'down' | 'flat'
   avg: number | string
   history: number[]
   source: string
@@ -149,6 +154,10 @@ export interface TrendView {
   unit: string
   change: number
   points: number[]
+  // Edition id (e.g. "W45") for each entry in `points`, same order/length,
+  // so the chart can print an x-axis label under every plotted point
+  // instead of a bare unlabelled line.
+  weeks: string[]
   avg: number | string
   prior: number | string
   context: string

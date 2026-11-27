@@ -470,7 +470,15 @@ body {
 }
 .watch-delta-item.new { background: var(--impact-medium-bg); }
 .watch-delta-item.escalated { background: var(--impact-high-bg); }
-.watch-delta-item.resolved { background: var(--slate-100); text-decoration: line-through; color: var(--slate-400); }
+/* Resolved: a checkmark + legible muted text, not grey-strikethrough-on-grey
+   (that combination was unreadable). Text stays dark enough to actually
+   read while still being visually de-emphasised against new/escalated rows. */
+.watch-delta-item.resolved { background: var(--slate-50); color: var(--slate-600); }
+.watch-delta-item.resolved .watch-delta-check {
+  color: var(--dir-up);
+  font-weight: 700;
+  flex-shrink: 0;
+}
 .watch-delta-tag {
   font-size: 0.6875rem;
   font-weight: 700;
@@ -631,6 +639,40 @@ body {
 .ask-container {
   max-width: var(--content-width);
   margin: 0 auto;
+}
+.ask-scope-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+  padding: 8px 12px;
+  background: var(--navy-50);
+  border: 1px solid var(--navy-100);
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+.ask-scope-edition {
+  color: var(--navy-800);
+  font-weight: 600;
+}
+.ask-scope-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--slate-600);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.ask-scope-toggle input { cursor: pointer; }
+.ask-answer-dateline {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--navy-600);
+  margin-bottom: var(--space-sm);
 }
 .ask-suggested {
   margin-bottom: var(--space-xl);
@@ -1908,6 +1950,13 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
   <!-- ============ ASK ============ -->
   <section class="tab-panel" id="tab-ask">
     <div class="ask-container">
+      <div class="ask-scope-row">
+        <span class="ask-scope-edition" id="askScopeEdition">Answers from this edition</span>
+        <label class="ask-scope-toggle">
+          <input type="checkbox" id="askSearchAll" onchange="onAskScopeChange()">
+          <span>Search all issues</span>
+        </label>
+      </div>
       <div class="ask-suggested">
         <h3>Executive Questions — Click to Ask</h3>
         <div class="ask-suggested-chips" id="askChips">
@@ -2253,19 +2302,24 @@ function renderSummary() {
   }
 
   // Sector heat
-  // Sectors come from the edition's own published subsections.
+  // Sectors come from the edition's own published subsections. The
+  // arrow/colour shown must match the specific "lead" item displayed next
+  // to it, not a section-wide vote across every item's grade — otherwise a
+  // single Mixed/Negative headline can be shown with a green "up" arrow
+  // just because the rest of the section skewed Positive.
   const heatEl = document.getElementById('sectorHeat');
+  const GRADE_DIR = { critical: 'down', high: 'flat', medium: 'up', low: 'flat' };
   const secRows = (currentEdition.sections || []).map(sec => {
     const items = sec.items || [];
     const neg = items.filter(i => i.impact === 'critical').length;
     const mix = items.filter(i => i.impact === 'high').length;
     const pos = items.filter(i => i.impact === 'medium').length;
-    const dir = neg > pos ? 'down' : pos > neg ? 'up' : (mix ? 'flat' : 'flat');
     // Short label: drop the numbering and the trailing "Sector"/"Market".
     const name = sec.title
       .replace(/^[A-Za-z ]+ - \d+\.\s*/, '')
       .replace(/\s*(Sector|Market)$/, '');
-    const lead = items.find(i => i.impact === 'critical') || items[0];
+    const lead = items.find(i => i.impact === 'critical') || items.find(i => i.impact === 'high') || items[0];
+    const dir = lead ? (GRADE_DIR[lead.impact] || 'flat') : 'flat';
     return { name, dir, neg, pos, mix, count: items.length,
              note: lead ? lead.title : 'No material movement' };
   });
@@ -2275,22 +2329,27 @@ function renderSummary() {
     const arrow = r.dir === 'up' ? '▲' : r.dir === 'down' ? '▼' : '►';
     return `
       <div class="sector-heat-row">
-        <span class="sector-heat-name">${r.name}</span>
+        <span class="sector-heat-name">${esc(r.name)}</span>
         <span class="sector-dir ${r.dir}">${arrow}</span>
-        <span class="sector-heat-note">${r.note}</span>
+        <span class="sector-heat-note">${esc(r.note)}</span>
       </div>
     `;
   }).join('');
 
-  // Watch list delta
+  // Watch list delta — titles are already complete, dated one-liners (see
+  // formatWatchLine() in viewmodel.ts buildDelta()); never re-truncated
+  // here. Resolved rows get a checkmark instead of strikethrough, which was
+  // illegible as grey-on-grey.
   const deltaEl = document.getElementById('watchDelta');
   const newItems = (currentEdition.delta || []).filter(d => d.status === 'new');
   const escalated = (currentEdition.delta || []).filter(d => d.status === 'escalated');
   const resolved = (currentEdition.delta || []).filter(d => d.status === 'resolved');
   deltaEl.innerHTML = [...newItems, ...escalated, ...resolved].map(d => `
     <div class="watch-delta-item ${d.status}">
-      <span class="watch-delta-tag">${d.status.toUpperCase()}</span>
-      <span>${d.title}</span>
+      ${d.status === 'resolved'
+        ? '<span class="watch-delta-check">&#10003;</span>'
+        : `<span class="watch-delta-tag">${d.status.toUpperCase()}</span>`}
+      <span>${esc(d.title)}</span>
     </div>
   `).join('') || '<div style="color:var(--slate-400);font-size:0.8125rem;">No changes from last week.</div>';
 
@@ -2329,30 +2388,62 @@ function submitAsk() {
   if (q) askQuestion(q);
 }
 
+// Re-run the last question (if any) when the reader flips the "search all
+// issues" toggle, so the answer scope visibly updates without having to
+// retype the question.
+let lastAskQuestion = '';
+function onAskScopeChange() {
+  updateAskScopeLabel();
+  if (lastAskQuestion) askQuestion(lastAskQuestion);
+}
+
+function updateAskScopeLabel() {
+  const searchAll = document.getElementById('askSearchAll').checked;
+  const scopeEl = document.getElementById('askScopeEdition');
+  if (!currentEdition) { scopeEl.textContent = ''; return; }
+  scopeEl.textContent = searchAll
+    ? `Searching all issues (opened: Week ${currentEdition.week} — ${formatDate(currentEdition.date)})`
+    : `Answers from Week ${currentEdition.week} — ${formatDate(currentEdition.date)}`;
+}
+
 async function askQuestion(question) {
   document.getElementById('askInput').value = question;
+  lastAskQuestion = question;
   trackActivity('ask', question.slice(0, 200));
   const answerEl = document.getElementById('askAnswer');
   answerEl.innerHTML = '<div class="ask-answer-empty">Searching sourced rows…</div>';
+
+  const searchAll = document.getElementById('askSearchAll').checked;
 
   try {
     const res = await fetch('/api/ask', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ query: question })
+      body: JSON.stringify({
+        query: question,
+        edition_id: currentEdition ? currentEdition.id : undefined,
+        search_all: searchAll,
+      })
     });
     const data = await res.json();
+    const ed = data.locked_edition;
+    const dateLine = ed
+      ? `<div class="ask-answer-dateline">${esc(ed.label || ('Week ' + ed.id))} — ${esc(formatDate(ed.date))}${data.searched_all ? ' · searched all issues' : ''}</div>`
+      : '';
     answerEl.innerHTML = `
+      ${dateLine}
       <div class="ask-answer-text">${data.answer}</div>
-      <div class="ask-answer-sources">
-        <h4>Sources (${data.sources.length})</h4>
-        ${data.sources.map(s => `
-          <div class="ask-source-row">
-            <span class="ask-source-ref">${s.ref}</span>
-            <span class="ask-source-text">${s.text}</span>
-          </div>
-        `).join('')}
-      </div>
+      ${data.sources && data.sources.length ? `
+        <div class="ask-answer-sources">
+          <h4>Sources (${data.sources.length})</h4>
+          ${data.sources.map(s => `
+            <div class="ask-source-row">
+              <span class="ask-source-ref">${s.ref}</span>
+              <span class="ask-source-text">${s.text}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     `;
   } catch (e) {
     answerEl.innerHTML = `<div class="ask-answer-empty">Unable to retrieve answer. The Ask API may not be running.</div>`;
@@ -2373,12 +2464,12 @@ function renderTrends() {
     return `
       <div class="trends-item">
         <div class="trends-item-header">
-          <span class="trends-item-title">${t.title}</span>
+          <span class="trends-item-title">${esc(t.title)}</span>
           <span class="trends-item-value ${dir}">${arrow} ${t.value}${t.unit || ''}</span>
         </div>
-        <div class="trends-chart" data-points='${JSON.stringify(t.points || [])}'></div>
+        <div class="trends-chart" data-points='${JSON.stringify(t.points || [])}' data-weeks='${JSON.stringify(t.weeks || [])}'></div>
         <div class="trends-baseline">
-          <span><span class="label">4-week avg:</span> ${t.avg || '—'}</span>
+          <span><span class="label">${(t.points||[]).length}-week avg:</span> ${t.avg || '—'}</span>
           <span><span class="label">Prior:</span> ${t.prior || '—'}</span>
           <span><span class="label">Current:</span> ${t.value}${t.unit || ''}</span>
         </div>
@@ -2387,7 +2478,7 @@ function renderTrends() {
     `;
   }).join('');
 
-  // Draw simple sparklines
+  // Draw sparklines (with axis labels/scale — see drawSparkline)
   document.querySelectorAll('.trends-chart').forEach(el => {
     drawSparkline(el);
   });
@@ -2395,26 +2486,57 @@ function renderTrends() {
 
 function drawSparkline(el) {
   const points = JSON.parse(el.dataset.points || '[]');
-  if (points.length < 2) return;
-  const w = el.clientWidth || 300;
+  const weeks = JSON.parse(el.dataset.weeks || '[]');
+  if (points.length < 2) {
+    el.innerHTML = '<div style="color:var(--slate-400);font-size:0.75rem;padding:8px 0;">Not enough weeks of data yet to chart a trend.</div>';
+    return;
+  }
+  const PAD_L = 44, PAD_B = 18, PAD_T = 10, PAD_R = 8;
+  const w = Math.max(el.clientWidth || 300, 120);
   const h = 120;
+  const plotW = w - PAD_L - PAD_R;
+  const plotH = h - PAD_T - PAD_B;
   const max = Math.max(...points);
   const min = Math.min(...points);
-  const range = max - min || 1;
-  const step = w / (points.length - 1);
+  const range = max - min || Math.abs(max) || 1;
+  // Pad the value range slightly so the line never touches the axis edges.
+  const vMax = max + range * 0.1;
+  const vMin = min - range * 0.1;
+  const vRange = (vMax - vMin) || 1;
+  const step = points.length > 1 ? plotW / (points.length - 1) : 0;
 
-  const coords = points.map((p, i) => `${i * step},${h - ((p - min) / range) * (h - 20) - 10}`);
+  const xOf = (i) => PAD_L + i * step;
+  const yOf = (v) => PAD_T + plotH - ((v - vMin) / vRange) * plotH;
+
+  const coords = points.map((p, i) => `${xOf(i)},${yOf(p)}`);
   const polyline = coords.join(' ');
-  const areaPath = `0,${h} ${polyline} ${w},${h}`;
+  const areaPath = `${xOf(0)},${PAD_T + plotH} ${polyline} ${xOf(points.length - 1)},${PAD_T + plotH}`;
+
+  // Y-axis: three gridlines (min / mid / max of the plotted series) with
+  // their actual values printed, so the chart reads as evidence rather
+  // than a decorative squiggle.
+  const yTicks = [vMin, (vMin + vMax) / 2, vMax];
+  const fmt = (n) => Math.abs(n) >= 100 ? Math.round(n).toLocaleString() : (Math.round(n * 100) / 100).toString();
+
+  // X-axis: one label per plotted week (edition id, e.g. "W45").
+  const xLabels = weeks.length === points.length ? weeks : points.map((_, i) => '');
 
   el.innerHTML = `
     <svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="overflow:visible">
+      ${yTicks.map((v) => {
+        const y = yOf(v);
+        return `
+          <line x1="${PAD_L}" y1="${y}" x2="${w - PAD_R}" y2="${y}" stroke="var(--slate-200)" stroke-width="1" />
+          <text x="${PAD_L - 6}" y="${y + 3}" text-anchor="end" font-size="8.5" fill="var(--slate-500)">${fmt(v)}</text>
+        `;
+      }).join('')}
       <polygon points="${areaPath}" fill="rgba(58,83,136,0.08)" />
       <polyline points="${polyline}" fill="none" stroke="var(--navy-600)" stroke-width="2" />
-      ${coords.map((c, i) => {
+      ${coords.map((c) => {
         const [x, y] = c.split(',');
         return `<circle cx="${x}" cy="${y}" r="3" fill="var(--navy-700)" />`;
       }).join('')}
+      ${xLabels.map((lbl, i) => lbl ? `<text x="${xOf(i)}" y="${h - 2}" text-anchor="middle" font-size="8.5" fill="var(--slate-500)">${lbl}</text>` : '').join('')}
     </svg>
   `;
 }
@@ -2446,20 +2568,24 @@ function renderPulseTable() {
   groups.forEach(group => {
     html += `<tr class="row-section-header"><td colspan="7">${group.category}</td></tr>`;
     (group.items || []).forEach(item => {
-      const dir = item.change > 0 ? 'up' : item.change < 0 ? 'down' : 'flat';
+      // `dir` is computed server-side (viewmodel.ts buildIndicators) purely
+      // from comparing this row's own current/prior values — never
+      // recomputed here, so it can't drift from what's printed in the two
+      // cells beside it.
+      const dir = item.dir || 'flat';
       const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '►';
       const trendSpark = (item.history || []).length > 1
         ? `<svg width="60" height="20">${miniSpark(item.history)}</svg>`
         : '—';
       html += `
         <tr>
-          <td>${item.name}</td>
-          <td class="num">${item.current}</td>
-          <td class="num">${item.prior || '—'}</td>
+          <td>${esc(item.name)}</td>
+          <td class="num">${esc(String(item.current))}</td>
+          <td class="num">${esc(String(item.prior || '—'))}</td>
           <td class="num delta-${dir}">${arrow} ${item.change !== undefined ? (item.change > 0 ? '+' : '') + item.change : '—'}</td>
           <td class="num">${item.avg || '—'}</td>
           <td>${trendSpark}</td>
-          <td style="font-size:0.6875rem;color:var(--slate-500);">${item.source || ''}</td>
+          <td style="font-size:0.6875rem;color:var(--slate-500);">${esc(item.source || '')}</td>
         </tr>
       `;
     });

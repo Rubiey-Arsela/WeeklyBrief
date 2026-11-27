@@ -1,11 +1,20 @@
 // Port of app.py's /api/ask retrieval logic — scores items and trends by
-// token overlap, does light entity/grade/trend detection, and links the
-// same subject across editions when it appears in more than one. No LLM
-// call: every answer is sourced from the structured edition data, same as
-// the original ("no generated content").
+// token overlap, does light entity/grade/trend detection. No LLM call:
+// every answer is sourced from the structured edition data, same as the
+// original ("no generated content").
+//
+// By default this is LOCKED to the currently open edition, matching the
+// Ask tab's own promise ("about this week's brief"): scoring only looks at
+// that edition's items/pulse, the answer leads with the edition's own
+// label/date, and an explicit "not covered this week" message is returned
+// when nothing in that edition scores above a sensible threshold — instead
+// of silently surfacing an unrelated item from a different week. Passing
+// searchAll=true opts back into scoring every loaded edition and, when the
+// same subject spans more than one of them, narrating how it moved
+// (the "search all issues" toggle in the UI).
 
 import type { Corpus, Edition } from './types'
-import { tokens } from './viewmodel'
+import { tokens, derivePulseChange, labelTokens, shortIndicatorLabel } from './viewmodel'
 
 export interface AskSource {
   ref: string
@@ -19,7 +28,18 @@ export interface AskResult {
   answer: string
   sources: AskSource[]
   editions_referenced: string[]
+  // The edition the answer is locked to (label + date), so the UI can print
+  // it above the answer even when the question matched nothing and the
+  // "not covered" message is returned.
+  locked_edition?: { id: string; label: string; date: string }
+  searched_all: boolean
 }
+
+// A match has to clear this score to count as "this week's brief actually
+// covers that" — low-scoring noise (one incidental token overlap) must not
+// be presented as a real answer; it should fall through to the explicit
+// "not covered" message instead.
+const COVERAGE_THRESHOLD = 6
 
 function scoreItem(item: Edition['items'][number], entNames: Record<string, string>, qtok: string[]): number {
   const hay = [
@@ -36,9 +56,26 @@ function scoreItem(item: Edition['items'][number], entNames: Record<string, stri
   return s
 }
 
-export function ask(corpus: Corpus, editions: Edition[], q: string): AskResult {
+export function ask(
+  corpus: Corpus,
+  editions: Edition[],
+  q: string,
+  opts?: { editionId?: string; searchAll?: boolean },
+): AskResult {
   q = (q || '').trim()
-  if (!q) return { answer: 'Ask a question about the brief.', sources: [], editions_referenced: [] }
+  const searchAll = !!opts?.searchAll
+  const sorted = [...editions].sort((a, b) => (a.date < b.date ? -1 : 1))
+  const lockedEd = opts?.editionId
+    ? sorted.find((e) => e.id === opts.editionId) || sorted[sorted.length - 1]
+    : sorted[sorted.length - 1]
+  const lockedMeta = lockedEd ? { id: lockedEd.id, label: lockedEd.label, date: lockedEd.date } : undefined
+
+  if (!q) {
+    return {
+      answer: 'Ask a question about the brief.', sources: [], editions_referenced: [],
+      locked_edition: lockedMeta, searched_all: searchAll,
+    }
+  }
 
   const qtok = tokens(q)
   const entNames: Record<string, string> = {}
@@ -52,19 +89,19 @@ export function ask(corpus: Corpus, editions: Edition[], q: string): AskResult {
     return short.length > 4 && ql.includes(short)
   })
 
-  const trendWords = new Set(['trend', 'change', 'changed', 'over', 'time', 'worse', 'better',
-    'compare', 'comparison', 'direction', 'week', 'weeks', 'moving', 'pattern'])
-  const wantsTrend = qtok.some((t) => trendWords.has(t))
-
   let gradeFilter: string | null = null
   for (const [word, grade] of [['negative', 'Negative'], ['critical', 'Negative'],
     ['risk', 'Negative'], ['positive', 'Positive'], ['good', 'Positive'], ['mixed', 'Mixed']] as const) {
     if (ql.includes(word)) { gradeFilter = grade; break }
   }
 
+  // Scope: locked to one edition by default; every loaded edition only
+  // when the reader explicitly asked to search all issues.
+  const pool = searchAll ? sorted : (lockedEd ? [lockedEd] : [])
+
   type Scored = [number, Edition, Edition['items'][number]]
   const scored: Scored[] = []
-  for (const ed of editions) {
+  for (const ed of pool) {
     for (const item of ed.items || []) {
       let s = scoreItem(item, entNames, qtok)
       if (hitsEnt.length) {
@@ -77,33 +114,69 @@ export function ask(corpus: Corpus, editions: Edition[], q: string): AskResult {
   }
   scored.sort((a, b) => b[0] - a[0])
 
-  type ScoredTrend = [number, Corpus['trends'][number]]
-  const trendsScored: ScoredTrend[] = []
-  for (const t of corpus.trends || []) {
-    let s = 0
-    const hay = (t.title + ' ' + t.detail).toLowerCase()
-    for (const tok of qtok) if (hay.includes(tok)) s += 3
-    if (hitsEnt.length) {
-      const ids = new Set(hitsEnt.map((e) => e.id))
-      if ((t.entities || []).some((e) => ids.has(e))) s += 10
-    }
-    if (wantsTrend) s += 2
-    if (s > 0) trendsScored.push([s, t])
-  }
-  trendsScored.sort((a, b) => b[0] - a[0])
-
   const parts: string[] = []
   const sources: AskSource[] = []
 
-  if (wantsTrend && trendsScored.length) {
-    for (const [, t] of trendsScored.slice(0, 3)) {
-      parts.push(`<strong>${t.title}</strong><br><br>${t.detail}`)
-      sources.push({ ref: 'Trend', text: t.title })
+  // Indicator lookup — a number answers a number question. Always reads
+  // the matched edition's OWN pulse row via derivePulseChange(), never the
+  // legacy static corpus.indicators series, so this can't disagree with
+  // the Indicators tab for the same week.
+  let indicatorAnswer: string | null = null
+  if (lockedEd) {
+    const indEds = searchAll ? pool : [lockedEd]
+    for (const ed of indEds) {
+      const match = (ed.pulse || []).find((row) =>
+        qtok.some((tok) => (row.indicator || '').toLowerCase().includes(tok)))
+      if (match) {
+        const { current, prior } = derivePulseChange(match)
+        indicatorAnswer =
+          `<strong>${shortIndicatorLabel(match.indicator)}</strong> is ${current} in ${ed.label} (${ed.id}), ` +
+          `up from ${prior} the week before.<br><br>${match.implication || ''}`
+        sources.push({ ref: 'Pulse', text: `${match.indicator} — ${ed.id} Weekly Pulse`, edition: ed.id })
+        break
+      }
     }
   }
 
-  if (scored.length) {
-    if (parts.length) parts.push('<hr>')
+  const covered = scored.length > 0 && scored[0][0] >= COVERAGE_THRESHOLD
+  const leadEd = lockedEd
+
+  if (!covered && !indicatorAnswer) {
+    const scopeNote = searchAll
+      ? `Nothing across the ${pool.length} loaded editions matches that.`
+      : `<strong>${leadEd ? leadEd.label : 'This week\u2019s brief'} (${leadEd ? leadEd.id : ''}) does not cover this.</strong> ` +
+        'Nothing in the currently open edition matches your question closely enough to answer from it.'
+    const names = [...new Set((corpus.entities || []).map((e) => e.name))].sort().join(', ')
+    const suggestion = searchAll
+      ? `The app holds ${editions.length} editions covering: ${names}.`
+      : 'Turn on "Search all issues" to check past editions, or ask about something in this week\u2019s Report tab.'
+    return {
+      answer: `${scopeNote}<br><br>${suggestion}`,
+      sources: [],
+      editions_referenced: [],
+      locked_edition: lockedMeta,
+      searched_all: searchAll,
+    }
+  }
+
+  // Lead with a one-sentence answer before the supporting detail, per the
+  // Ask tab's own promise of a direct answer first.
+  if (covered) {
+    const [, topEd, topItem] = scored[0]
+    const leadSentence =
+      `<strong>In brief:</strong> ${topItem.headline} ` +
+      `(${topItem.grade || 'Neutral'}${!searchAll ? '' : `, ${topEd.label}`}).`
+    parts.push(leadSentence)
+  } else if (indicatorAnswer) {
+    parts.push(`<strong>In brief:</strong> ${indicatorAnswer}`)
+    indicatorAnswer = null // already shown as the lead, don't repeat below
+  }
+
+  if (indicatorAnswer) {
+    parts.push(indicatorAnswer)
+  }
+
+  if (covered) {
     for (const [, ed, item] of scored.slice(0, 4)) {
       const flag = item.flag ? `<br><br><em>Note: ${item.flag}</em>` : ''
       parts.push(
@@ -121,52 +194,16 @@ export function ask(corpus: Corpus, editions: Edition[], q: string): AskResult {
     }
   }
 
-  if (!parts.length && trendsScored.length) {
-    const t = trendsScored[0][1]
-    parts.push(`<strong>${t.title}</strong><br><br>${t.detail}`)
-    sources.push({ ref: 'Trend', text: t.title })
-  }
-
-  // Indicator lookup goes first — a number answers a number question.
-  for (const ind of corpus.indicators || []) {
-    if (qtok.some((tok) => ind.label.toLowerCase().includes(tok)) || ql.includes(ind.id)) {
-      const ser = ind.series || []
-      if (!ser.length) break
-      const first = ser[0], last = ser[ser.length - 1]
-      const chg = last.value - first.value
-      const pct = first.value ? (chg / first.value * 100) : 0
-      parts.unshift(
-        `<strong>${ind.label}</strong> is ${last.value}` +
-        `${ind.unit ? ' ' + ind.unit : ''} as at ${last.date}, ` +
-        `from ${first.value} on ${first.date} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% over the period).` +
-        `<br><br>${ind.note || ''}`,
-      )
-      sources.unshift({ ref: 'Pulse', text: `${ind.label} — published Pulse series` })
-      break
-    }
-  }
-
-  if (!parts.length) {
-    const names = [...new Set((corpus.entities || []).map((e) => e.name))].sort().join(', ')
-    return {
-      answer: 'Nothing in the loaded editions matches that. The app currently holds ' +
-        `${editions.length} editions covering these businesses: ${names}.` +
-        '<br><br>Try asking about Brent and fuel cost, the PTP cyberattack, ' +
-        'Bank Muamalat funding, palm oil stocks, or what changed over the ' +
-        'last two weeks.',
-      sources: [],
-      editions_referenced: [],
-    }
-  }
-
-  // Cross-edition linking: an executive question is rarely about one week.
-  // When the same subject appears in more than one edition, say how it
-  // moved and name the weeks.
   const edsSeen: string[] = []
   for (const [, ed] of scored.slice(0, 12)) {
     if (!edsSeen.includes(ed.id)) edsSeen.push(ed.id)
   }
-  if (edsSeen.length > 1) {
+
+  // Cross-edition linking only ever runs when the reader explicitly turned
+  // on "search all issues" — the default, locked mode never narrates
+  // history across weeks, since the Ask tab promises an answer about THIS
+  // week's brief.
+  if (searchAll && edsSeen.length > 1) {
     const byEd: Record<string, [Edition, Edition['items'][number]][]> = {}
     for (const [, ed, item] of scored.slice(0, 12)) {
       (byEd[ed.id] = byEd[ed.id] || []).push([ed, item])
@@ -195,5 +232,11 @@ export function ask(corpus: Corpus, editions: Edition[], q: string): AskResult {
     sources.push({ kind: 'history', ref: 'History', text: 'Linked across ' + order.join(', ') })
   }
 
-  return { answer: parts.join('<br><br>'), sources: sources.slice(0, 8), editions_referenced: edsSeen }
+  return {
+    answer: parts.join('<br><br>'),
+    sources: sources.slice(0, 8),
+    editions_referenced: edsSeen,
+    locked_edition: lockedMeta,
+    searched_all: searchAll,
+  }
 }

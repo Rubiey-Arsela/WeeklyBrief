@@ -402,6 +402,12 @@
     document.getElementById('ledeText').textContent = isReader
       ? "Enter your name and the access code shared with you to open this week's brief."
       : "Sign in with your organisation's Microsoft 365 account.";
+    // Only tell a visitor Microsoft sign-in isn't set up once they've
+    // actually asked for it by clicking this tab -- never on page load.
+    if (!isReader && window.__MS_CONFIGURED__ === false) {
+      document.getElementById('msSignInBtn').style.display = 'none';
+      document.getElementById('unconfiguredNotice').style.display = 'block';
+    }
   }
 
   async function submitReaderAccess(e) {
