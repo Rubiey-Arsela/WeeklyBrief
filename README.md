@@ -11,8 +11,15 @@
   - **Indicators** tab: the published weekly Pulse table (Brent, USD/MYR, CNY/MYR, 10Y MGS yield, diesel, KLCI, net foreign flow, palm oil stocks)
   - **Sticky notes**: click-to-drop notes anywhere on the report, shared across all readers (D1-backed), with replies and resolve/reopen
   - **Admin**: add/edit/delete editions, **PDF-only upload** — week number, date **and the full report content** (Executive Summary, Speed Read, Structural Positioning, Weekly Pulse table, all graded news items, Watchlist) are extracted straight from the PDF's own text; no manual entry, no JSON upload option, and no dependency on the upload date, so past editions can be backfilled and future ones uploaded ahead of time
-  - **Export**: PDF and Word documents, same reading order as the report tab, including open reader notes
+  - **Export**: PDF and Word documents, same reading order as the report tab, including open reader notes; Word export now hyperlinks "Source: X" straight to the article's exact URL when one is on file (PDF export source lines remain plain text — `pdf-lib` has no top-level hyperlink helper, flagged as outstanding)
   - **Read Aloud**: narration via Gemini TTS (requires a `GEMINI_API_KEY` secret — see below); degrades to a clear "not configured" message otherwise
+  - **Lead-with-what-changed**: a card at the top of Executive Summary surfacing new/escalated Watch List items and the biggest indicator moves since last week, each clickable straight to its source
+  - **Ranked, clickable Speed Read**: Speed Read lines are matched back to their full report item (token-overlap scoring), sorted so critical/high-impact items surface first, and clicking a line jumps to and highlights that item in the Report tab
+  - **Sticky section rail + reading progress**: a desktop-only scrollspy rail alongside the Report tab (with a live progress-fill bar) plus a thin mobile progress strip under the tab bar
+  - **Glossary**: a shared, admin-maintained term list (BNM, OPR, DOSM, CPO, etc.); terms found in report text get a dotted-underline hover tooltip, and a toolbar button opens the full glossary modal
+  - **Archive Search**: a dedicated "Search Archive" tab that ranks matching news items across *every* loaded edition (not just the current week), distinct from the edition-locked Ask tab
+  - **Shareable links**: the current edition/tab/sector/search-query are kept in the URL; a masthead "🔗 Share" button copies a link that reopens the exact same view, and browser back/forward works as expected
+  - **Mobile toolbar fixes**: Ask's scope toggle, the export dropdown, the highlight toolbar and the search bar all stack/clamp correctly on narrow screens
 
 ## URLs
 - **Production (Cloudflare Pages)**: https://Maida-Vale-Weekly-Brief.pages.dev
@@ -37,9 +44,14 @@
 | `GET /api/export/<id>.pdf` / `.docx` | generated document |
 | `GET /pdf/<name>`, `GET /audio/<name>` | files stored in R2 |
 | `POST /api/feedback`, `GET /api/feedback` | free-text feedback log |
+| `GET /api/search?q=` | ranked archive search across all editions → `{query, hits[]}` (title/body token-overlap match, no synthesis) |
+| `GET /api/glossary` | public — all glossary terms, sorted alphabetically |
+| `POST /api/glossary` | staff-only — upsert a term `{display_term, definition}` |
+| `DELETE /api/glossary/:term` | staff-only — remove a term |
 
 ## Data Architecture
-- **Storage**: Cloudflare D1 (editions, notes, feedback, corpus reference data) + Cloudflare R2 (uploaded PDFs, generated narration audio cache)
+- **Storage**: Cloudflare D1 (editions, notes, feedback, corpus reference data, glossary) + Cloudflare R2 (uploaded PDFs, generated narration audio cache)
+- **Glossary**: a small shared D1 table (`glossary`), not per-edition — `term` (lowercase key), `display_term`, `definition`. Seeded via `migrations/0007_glossary.sql` with ~24 Malaysia/sector terms (OPR, BNM, DOSM, SST, GDP, FDI, IPP, FiT, NEM, PTP, Bursa Malaysia, FBM KLCI, RON95/97, MOF, EPF, Khazanah, Petronas, Brent Crude, CPO, MCO, Data Centre, etc). Reader-facing GET is public; POST/DELETE are staff-gated. No admin UI exists yet to add/edit terms outside the migration — only the raw API routes.
 - **Data model**: `editions` keep the flat, as-authored item list per week (same shape as the original `editions.json`); a `corpus` singleton row holds entities/indicators/trends/published-section-order shared across editions. A TypeScript port of the original Python `view_model()` derives the grouped sections, Pulse rows, trends, and watch-list delta at read time — the stored shape is never reshaped.
 - **Ask**: pure retrieval over `corpus` + `editions` (token-overlap scoring, entity/grade/trend detection, cross-edition linking) — no LLM call, so every answer is traceable to a stored row.
 - **PDF content extraction** (`src/pdfExtract.ts`): runs once per upload, entirely server-side.
@@ -69,7 +81,14 @@
 - **Tech Stack**: Hono + TypeScript, Cloudflare D1, Cloudflare R2, `pdf-lib` (PDF export), `docx` (Word export)
 - **Enabling narration**: set a Gemini API key as a Worker secret on the Pages project, e.g. `npx wrangler pages secret put GEMINI_API_KEY --project-name maida-vale-weekly-brief`
 - **Enabling PDF content extraction**: set an OpenAI-compatible API key as a Worker secret, e.g. `npx wrangler pages secret put OPENAI_API_KEY --project-name maida-vale-weekly-brief`. If the account's base URL differs from `https://api.openai.com/v1`, also set `OPENAI_BASE_URL`. Without `OPENAI_API_KEY`, PDF upload is disabled with a clear error rather than silently creating a content-free edition.
-- **Last Updated**: 2026-09-18 (PDF upload now extracts week/date/content from the PDF's own text instead of guessing from the upload date)
+- **Last Updated**: 2026-11-28 (engagement batch: shareable URLs, archive search, section rail + reading progress, lead-with-what-changed, ranked/clickable Speed Read, glossary, mobile toolbar fixes, Word export source hyperlinks — `0007_glossary.sql` applied to production D1)
+
+## Not yet implemented
+- **Notes author/reply polish**: replies exist (author field, reply UI) but have not been reviewed/extended this round — revisit if the director wants more than the current baseline.
+- **Friday-rhythm notification**: no reminder/notification mechanism yet. Since this app deploys BYOK (direct `wrangler pages deploy`, not Genspark hosted deploy), Cloudflare `triggers` (cron) are usable here if wanted — needs a decision on delivery channel (email/WhatsApp/in-app banner) before building.
+- **Board-pack PDF**: a distinct, more presentation-ready export than the existing `exportPdf()` — not started.
+- **PDF export source hyperlinks**: Word (`docx`) export now links "Source: X" to the article URL; the PDF export (`pdf-lib`) has no top-level hyperlink helper, so this still renders as plain text — would need manual `PDFAnnotation`/link-annotation construction.
+- **Admin glossary editor UI**: `POST`/`DELETE /api/glossary` exist and are staff-gated, but there's no admin.html screen to call them yet — new/changed terms currently require a DB migration or a manual API call.
 
 ## Porting notes (from the original Flask prototype)
 The original app (`app.py` + `modules.py`, Flask + JSON files) is preserved for reference. Key differences in this port:
