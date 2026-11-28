@@ -892,6 +892,36 @@ app.get('/api/export/:idfmt', async (c) => {
   })
 })
 
+// ------------------------------------------------------------------- glossary
+// Short definitions for recurring jargon/acronyms (OPR, SST, IPP, etc.), so
+// a reader can look a term up inline instead of leaving the app. A single
+// shared table, not per-edition — see migrations/0007_glossary.sql.
+app.get('/api/glossary', async (c) => {
+  const { results } = await c.env.DB.prepare('SELECT * FROM glossary ORDER BY display_term ASC').all()
+  return c.json((results || []).map((r: any) => ({ term: r.term, display_term: r.display_term, definition: r.definition })))
+})
+
+app.post('/api/glossary', async (c) => {
+  if (!(await isStaffRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const body = await c.req.json().catch(() => ({}))
+  const displayTerm = (body.display_term || body.term || '').trim()
+  const definition = (body.definition || '').trim()
+  if (!displayTerm || !definition) return c.json({ ok: false, error: 'term and definition are required' }, 400)
+  const term = displayTerm.toLowerCase()
+  await c.env.DB.prepare(
+    `INSERT INTO glossary (term, display_term, definition, updated) VALUES (?,?,?,datetime('now'))
+     ON CONFLICT(term) DO UPDATE SET display_term=excluded.display_term, definition=excluded.definition, updated=datetime('now')`,
+  ).bind(term, displayTerm, definition.slice(0, 1000)).run()
+  return c.json({ ok: true, term })
+})
+
+app.delete('/api/glossary/:term', async (c) => {
+  if (!(await isStaffRequest(c))) return c.json({ ok: false, error: 'unauthorised' }, 401)
+  const term = c.req.param('term').toLowerCase()
+  await c.env.DB.prepare('DELETE FROM glossary WHERE term = ?').bind(term).run()
+  return c.json({ ok: true })
+})
+
 // ------------------------------------------------------------------- feedback
 app.post('/api/feedback', async (c) => {
   const body = await c.req.json().catch(() => ({}))
