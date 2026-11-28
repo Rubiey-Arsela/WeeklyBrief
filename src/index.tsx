@@ -5,7 +5,7 @@ import type { AppEnv, Corpus, Edition, Note, Highlight, PdfMeta } from './types'
 import { viewModel, weekOf, tokens, isoWeek } from './viewmodel'
 import { ask, searchArchive } from './ask'
 import { VOICES, synthesise } from './tts'
-import { exportDocx, exportPdf } from './export'
+import { exportDocx, exportPdf, exportBoardPackPdf } from './export'
 import { extractEdition } from './pdfExtract'
 import {
   isAuthConfigured, getCookie, buildSetCookie, buildClearCookie, verifySession,
@@ -888,6 +888,27 @@ app.get('/api/export/:idfmt', async (c) => {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${stem}.pdf"`,
+    },
+  })
+})
+
+// Board pack: a short, presentation-ready PDF (cover + dashboard + priority
+// items only + watch list) for director/board distribution — distinct from
+// the full-report /api/export/:id.pdf above.
+app.get('/api/export/:id/board-pack.pdf', async (c) => {
+  const editionId = c.req.param('id')
+  const db = c.env.DB
+  const editions = await loadEditions(db)
+  if (!editions.length) return c.notFound()
+  const ed = editionId === 'latest' || editionId === 'current' ? editions[editions.length - 1] : editions.find((e) => e.id === editionId)
+  if (!ed) return c.notFound()
+  const corpus = await loadCorpus(db)
+  const vm = viewModel(corpus, editions, ed)
+  const buf = await exportBoardPackPdf(vm)
+  return new Response(buf, {
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="Weekly-Brief-${vm.id}-${vm.date}-board-pack.pdf"`,
     },
   })
 })

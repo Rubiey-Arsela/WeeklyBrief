@@ -1198,13 +1198,16 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
   border-bottom: 1px solid rgba(0,0,0,0.09); cursor: move;
   font-size: 0.6875rem; font-weight: 700; color: #6b4f14;
 }
-.note-head .nh-author { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-head .nh-author { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
+.note-head .nh-reply-count { font-size: 0.625rem; font-weight: 600; color: #8a6d1f; white-space: nowrap; }
 .note-head button { border: none; background: none; cursor: pointer; font-size: 0.75rem; color: #6b4f14; padding: 0 2px; }
-.note-body { padding: 7px 8px; color: #44403c; line-height: 1.45; white-space: pre-wrap; word-wrap: break-word; }
+.note-body { padding: 7px 8px 2px; color: #44403c; line-height: 1.45; white-space: pre-wrap; word-wrap: break-word; }
 .note-body[contenteditable="true"] { background: rgba(255,255,255,0.7); outline: 1px solid #d9a441; }
-.note-replies { border-top: 1px dashed rgba(0,0,0,0.14); padding: 5px 8px; }
+.note-timestamp { padding: 0 8px 6px; font-size: 0.625rem; color: #8a7a52; }
+.note-replies { border-top: 1px dashed rgba(0,0,0,0.14); padding: 5px 8px; max-height: 140px; overflow-y: auto; }
 .note-reply { font-size: 0.6875rem; color: #57534e; margin-bottom: 3px; }
 .note-reply b { color: #44403c; }
+.note-reply-time { font-size: 0.5938rem; color: #a3936a; margin-left: 3px; }
 .note-foot { display: flex; gap: 4px; padding: 5px 8px; border-top: 1px solid rgba(0,0,0,0.09); }
 .note-foot input {
   flex: 1; font-family: inherit; font-size: 0.6875rem; padding: 3px 5px;
@@ -2176,6 +2179,8 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
       </div>
       <button class="ra-note-btn" id="noteModeBtn" onclick="toggleNoteMode()"
               title="Drop a sticky note anywhere on the report">&#128221; Add note</button>
+      <button class="ra-note-btn" onclick="changeNoteAuthor()"
+              title="Change the name shown on notes and replies you add">&#128100; Name</button>
       <button class="ra-note-btn ra-highlight-btn" id="highlightModeBtn" onclick="toggleHighlightMode()"
               title="Select text in the report to highlight it">&#128998; Highlight</button>
       <div class="export-menu">
@@ -2183,6 +2188,7 @@ body.note-mode .report-body { outline: 2px dashed #d9a441; outline-offset: 6px; 
         <div class="export-dropdown" id="exportDropdown">
           <a href="#" onclick="doExport('pdf');return false;">PDF document</a>
           <a href="#" onclick="doExport('docx');return false;">Word document</a>
+          <a href="#" onclick="doExportBoardPack();return false;">Board pack PDF (summary)</a>
           <a href="#" onclick="window.print();closeExportMenu();return false;">Print / Save as PDF</a>
         </div>
       </div>
@@ -3529,6 +3535,13 @@ function doExport(fmt) {
   window.location.href = `/api/export/${currentEdition.id}.${fmt}`;
 }
 
+function doExportBoardPack() {
+  closeExportMenu();
+  if (!currentEdition) return;
+  trackActivity('export', 'board-pack');
+  window.location.href = `/api/export/${currentEdition.id}/board-pack.pdf`;
+}
+
 /* ---------- Reading modes: wording / table / visual ---------- */
 let reportView = 'prose';
 
@@ -3700,19 +3713,22 @@ function renderNotes() {
     el.dataset.id = n.id;
     el.style.left = Math.max(0, Math.min(n.x * w, w - 212)) + 'px';
     el.style.top = (n.y * h) + 'px';
+    const replyCount = (n.replies || []).length;
     el.innerHTML = `
       <div class="note-head" title="Drag to move">
-        <span class="nh-author">${esc(n.author || 'Anonymous')}</span>
+        <span class="nh-author" title="${esc(n.author || 'Anonymous')} \u2014 ${esc(noteTimeLabel(n.created))}">${esc(n.author || 'Anonymous')}</span>
+        ${replyCount ? `<span class="nh-reply-count" title="${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}">&#128172; ${replyCount}</span>` : ''}
         <button onclick="editNote('${n.id}')" title="Edit">&#9998;</button>
         <button onclick="resolveNote('${n.id}')" title="${n.resolved ? 'Reopen' : 'Mark done'}">&#10003;</button>
         <button onclick="removeNote('${n.id}')" title="Delete">&times;</button>
       </div>
       <div class="note-body" data-id="${n.id}">${esc(n.text || '')}</div>
-      ${(n.replies || []).length ? `<div class="note-replies">${
-        n.replies.map(r => `<div class="note-reply"><b>${esc(r.author)}:</b> ${esc(r.text)}</div>`).join('')
+      <div class="note-timestamp">${esc(noteTimeLabel(n.created))}${n.updated && n.updated !== n.created ? ' \u00b7 edited' : ''}</div>
+      ${replyCount ? `<div class="note-replies">${
+        n.replies.map(r => `<div class="note-reply"><b>${esc(r.author || 'Anonymous')}:</b> ${esc(r.text)} <span class="note-reply-time">${esc(noteTimeLabel(r.ts))}</span></div>`).join('')
       }</div>` : ''}
       <div class="note-foot">
-        <input placeholder="Reply\u2026" onkeydown="if(event.key==='Enter')replyNote('${n.id}',this)">
+        <input placeholder="Reply as ${esc(currentNoteAuthor())}\u2026" onkeydown="if(event.key==='Enter')replyNote('${n.id}',this)">
       </div>`;
     makeDraggable(el, n);
     body.appendChild(el);
@@ -3755,6 +3771,42 @@ function makeDraggable(el, n) {
   };
   document.addEventListener('mousemove', move);
   document.addEventListener('mouseup', up);
+}
+
+// Notes author identity: a per-browser display name, stored locally and
+// reused across every note/reply/highlight this reader makes. Separate
+// from the server-side reader-access name since a single shared reader
+// login may be used by more than one person taking notes.
+function currentNoteAuthor() {
+  return localStorage.getItem('briefAuthor') || (document.getElementById('adminUser') || {}).dataset?.readerName || 'Anonymous';
+}
+
+function changeNoteAuthor() {
+  const current = localStorage.getItem('briefAuthor') || '';
+  const next = prompt('Your name (shown on notes and replies you add):', current);
+  if (next == null) return;
+  const trimmed = next.trim();
+  if (trimmed) localStorage.setItem('briefAuthor', trimmed);
+  else localStorage.removeItem('briefAuthor');
+  renderNotes();
+}
+
+// Relative/absolute timestamp for a note or reply, e.g. "2h ago" within the
+// first day, then a short date — mirrors common chat-app conventions so
+// readers can judge how fresh a note or reply is without parsing an ISO string.
+function noteTimeLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
 async function placeNoteAt(ev) {

@@ -8,7 +8,7 @@ import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow,
   TableCell, WidthType, AlignmentType, BorderStyle, ExternalHyperlink,
 } from 'docx'
-import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from 'pdf-lib'
+import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage, PDFName, PDFArray, PDFString } from 'pdf-lib'
 import type { ViewModel, Note } from './types'
 
 // Maida Vale brand green (#295650), matching the masthead/logo colour.
@@ -225,6 +225,62 @@ class PdfWriter {
     }
     this.y -= (opts.spaceAfter ?? 4)
   }
+
+  // A line that renders as "Source: <name>" with the name underlined in
+  // navy and wrapped in a clickable URI link annotation, falling back to
+  // plain italic text when no exact source_url is on file. pdf-lib has no
+  // built-in hyperlink helper (only low-level PDFAnnotation primitives), so
+  // this constructs a Link annotation dict directly and attaches it to the
+  // page's /Annots array over the rectangle the name was drawn in.
+  drawSourceLine(label: string, name: string, url: string | undefined, opts: { font?: PDFFont; size?: number; color?: { r: number; g: number; b: number }; spaceAfter?: number } = {}) {
+    const font = opts.font || this.italic
+    const size = opts.size ?? 7.6
+    const color = opts.color ?? SLATE
+    const prefix = pdfSafe(label)
+    const nameText = pdfSafe(name)
+    this.ensureSpace(size * 1.4)
+    const lineY = this.y - size * 1.4
+    this.page.drawText(prefix, { x: MARGIN, y: lineY, size, font, color: rgb(color.r, color.g, color.b) })
+    const prefixW = font.widthOfTextAtSize(prefix, size)
+    const nameX = MARGIN + prefixW
+    const nameColor = url ? NAVY : color
+    this.page.drawText(nameText, { x: nameX, y: lineY, size, font, color: rgb(nameColor.r, nameColor.g, nameColor.b) })
+    const nameW = font.widthOfTextAtSize(nameText, size)
+    if (url) {
+      // Underline to signal "clickable", same visual language as the Word export.
+      this.page.drawLine({
+        start: { x: nameX, y: lineY - 1 }, end: { x: nameX + nameW, y: lineY - 1 },
+        thickness: 0.5, color: rgb(nameColor.r, nameColor.g, nameColor.b),
+      })
+      this.linkAnnotation([nameX, lineY - 2, nameX + nameW, lineY + size], url)
+    }
+    this.y -= size * 1.4
+    this.y -= (opts.spaceAfter ?? 7)
+  }
+
+  // Attaches a clickable URI link annotation over `rect` ([x1,y1,x2,y2] in
+  // page points) on the current page. pdf-lib exposes no page.drawLink(), so
+  // this builds the /Annot /Link dict with a /URI action by hand and
+  // registers it in the page's /Annots array.
+  linkAnnotation(rect: [number, number, number, number], url: string) {
+    const annotRef = this.doc.context.register(
+      this.doc.context.obj({
+        Type: 'Annot',
+        Subtype: 'Link',
+        Rect: rect,
+        Border: [0, 0, 0],
+        A: {
+          Type: 'Action',
+          S: 'URI',
+          URI: PDFString.of(url),
+        },
+      }),
+    )
+    const existing = this.page.node.lookup(PDFName.of('Annots'), PDFArray)
+    const annots = existing || this.doc.context.obj([])
+    annots.push(annotRef)
+    this.page.node.set(PDFName.of('Annots'), annots)
+  }
 }
 
 export async function exportPdf(vm: ViewModel, notes: Note[]): Promise<Uint8Array> {
@@ -303,7 +359,10 @@ export async function exportPdf(vm: ViewModel, notes: Note[]): Promise<Uint8Arra
       w.drawParagraph(titleLine, { font: w.bold, size: 9.8, color: NAVY, spaceAfter: 2 })
       w.drawParagraph(plain(item.body), { spaceAfter: 5 })
       if (item.source) {
-        w.drawParagraph('Source: ' + item.source, { font: w.italic, size: 7.6, color: SLATE, spaceAfter: 7 })
+        // Exact-URL items get a real clickable Link annotation (same fix
+        // already applied to the Word export); items without a confirmed
+        // source_url fall back to the original plain italic text.
+        w.drawSourceLine('Source: ', item.source, item.source_url, { font: w.italic, size: 7.6, color: SLATE, spaceAfter: 7 })
       }
     }
   }
@@ -320,6 +379,118 @@ export async function exportPdf(vm: ViewModel, notes: Note[]): Promise<Uint8Arra
       w.drawParagraph(`• ${n.author || 'Anonymous'}: ${plain(n.text || '')}`, { spaceAfter: 3 })
       for (const rep of n.replies || []) {
         w.drawParagraph(`    – ${rep.author || 'Anonymous'}: ${plain(rep.text || '')}`, { spaceAfter: 3, size: 8.4 })
+      }
+    }
+  }
+
+  return await w.doc.save()
+}
+
+// =========================================================== Board-pack PDF
+// A short, presentation-ready summary for the director/board distribution —
+// distinct from exportPdf() above, which reproduces the full report in
+// reading order. This is a cover page + at-a-glance dashboard + the top
+// critical/high items only + the Watch List, so it reads in under two
+// minutes rather than the full brief's ten-plus.
+const GRADE_COLOR: Record<string, { r: number; g: number; b: number }> = {
+  critical: RED,
+  high: { r: 0xd9 / 255, g: 0x77 / 255, b: 0x06 / 255 },
+  medium: { r: 0x15 / 255, g: 0x80 / 255, b: 0x3d / 255 },
+  low: SLATE,
+}
+
+export async function exportBoardPackPdf(vm: ViewModel): Promise<Uint8Array> {
+  const w = await PdfWriter.create()
+
+  // ---------- Cover ----------
+  w.y = PAGE_H - MARGIN - 60
+  w.drawParagraph('BOARD PACK', { font: w.bold, size: 11, color: SLATE, spaceAfter: 4 })
+  w.drawParagraph('Weekly Industry Brief', { font: w.bold, size: 24, color: NAVY, spaceAfter: 6 })
+  w.drawParagraph(`Week ${vm.week} · ${vm.label}`, { size: 11, color: SLATE, spaceAfter: 2 })
+  w.drawParagraph(`Prepared for Al Bukhary Group`, { size: 9.5, color: SLATE, spaceAfter: 30 })
+
+  if (vm.exec_summary) {
+    w.drawParagraph('AT A GLANCE', { font: w.bold, size: 10, color: NAVY, spaceAfter: 4 })
+    w.drawParagraph(plain(vm.exec_summary), { size: 10, spaceAfter: 18 })
+  }
+
+  // Delta summary (new / escalated) right on the cover, since that's the
+  // single thing a director needs before a meeting — mirrors the
+  // Lead-with-what-changed card on the web app.
+  const notable = (vm.delta || []).filter((d) => d.status === 'new' || d.status === 'escalated').slice(0, 6)
+  if (notable.length) {
+    w.drawParagraph('WHAT CHANGED THIS WEEK', { font: w.bold, size: 10, color: NAVY, spaceAfter: 4 })
+    for (const d of notable) {
+      const tag = d.status === 'new' ? '[NEW] ' : '[ESCALATED] '
+      w.drawParagraph(tag + plain(d.title), { size: 9.3, spaceAfter: 3 })
+    }
+    w.y -= 8
+  }
+
+  // ---------- Indicator dashboard ----------
+  const pulseRows = (vm.indicators || []).flatMap((g) => g.items || [])
+  if (pulseRows.length) {
+    w.newPage()
+    w.drawParagraph('MARKET DASHBOARD', { font: w.bold, size: 13, color: NAVY, spaceAfter: 10 })
+    const cardW = (PAGE_W - MARGIN * 2 - 16) / 3
+    const cardH = 58
+    let col = 0
+    let rowStartY = w.y
+    for (const it of pulseRows) {
+      if (col === 3) { col = 0; rowStartY -= cardH + 10; w.y = rowStartY }
+      if (rowStartY - cardH < MARGIN) { w.newPage(); rowStartY = w.y; col = 0 }
+      const x = MARGIN + col * (cardW + 8)
+      const topY = rowStartY
+      w.page.drawRectangle({
+        x, y: topY - cardH, width: cardW, height: cardH,
+        borderColor: rgb(0.86, 0.89, 0.92), borderWidth: 0.6, color: rgb(0.98, 0.98, 0.99),
+      })
+      const nameLines = w.wrapText(pdfSafe(String(it.name)), w.bold, 8, cardW - 12)
+      w.page.drawText(nameLines[0] || '', { x: x + 6, y: topY - 14, size: 8, font: w.bold, color: rgb(NAVY.r, NAVY.g, NAVY.b) })
+      const dirColor = it.dir === 'up' ? GRADE_COLOR.medium : it.dir === 'down' ? RED : SLATE
+      const arrow = it.dir === 'up' ? 'UP' : it.dir === 'down' ? 'DOWN' : 'FLAT'
+      w.page.drawText(pdfSafe(String(it.current)), { x: x + 6, y: topY - 32, size: 13, font: w.bold, color: rgb(0, 0, 0) })
+      w.page.drawText(arrow, { x: x + 6, y: topY - 46, size: 7.2, font: w.bold, color: rgb(dirColor.r, dirColor.g, dirColor.b) })
+      w.page.drawText(`prev ${pdfSafe(String(it.prior))}`, { x: x + cardW - 6 - w.regular.widthOfTextAtSize(`prev ${it.prior}`, 7), y: topY - 46, size: 7, font: w.regular, color: rgb(SLATE.r, SLATE.g, SLATE.b) })
+      col++
+    }
+    w.y = rowStartY - cardH - 16
+  }
+
+  // ---------- Top critical / high items only ----------
+  const priorityItems: { section: string; item: ViewModel['sections'][number]['items'][number] }[] = []
+  for (const sec of vm.sections || []) {
+    for (const item of sec.items || []) {
+      if (item.impact === 'critical' || item.impact === 'high') priorityItems.push({ section: sec.title, item })
+    }
+  }
+  if (priorityItems.length) {
+    w.newPage()
+    w.drawParagraph('PRIORITY ITEMS', { font: w.bold, size: 13, color: NAVY, spaceAfter: 2 })
+    w.drawParagraph('Critical and high-impact developments only — see the full report for complete coverage.', { size: 8.3, color: SLATE, spaceAfter: 10 })
+    for (const { section, item } of priorityItems) {
+      w.ensureSpace(40)
+      const badgeColor = GRADE_COLOR[item.impact] || SLATE
+      w.page.drawRectangle({ x: MARGIN, y: w.y - 14, width: 4, height: 14, color: rgb(badgeColor.r, badgeColor.g, badgeColor.b) })
+      w.drawParagraph(section.toUpperCase(), { size: 6.8, color: SLATE, spaceAfter: 1 })
+      w.drawParagraph(item.title + `  [${item.impact_label}]`, { font: w.bold, size: 10, color: NAVY, spaceAfter: 2 })
+      w.drawParagraph(item.plain || plain(item.body), { size: 8.8, spaceAfter: 2, maxWidth: PAGE_W - MARGIN * 2 - 6 })
+      if (item.source) {
+        w.drawSourceLine('Source: ', item.source, item.source_url, { font: w.italic, size: 7.4, color: SLATE, spaceAfter: 8 })
+      } else {
+        w.y -= 8
+      }
+    }
+  }
+
+  // ---------- Watch List ----------
+  if (vm.carry_forward?.length || (vm.sections || []).length) {
+    const watchItems = vm.carry_forward || []
+    if (watchItems.length) {
+      w.newPage()
+      w.drawParagraph('WATCH LIST — CARRIED FORWARD', { font: w.bold, size: 13, color: NAVY, spaceAfter: 10 })
+      for (const it of watchItems) {
+        w.drawParagraph(`• ${plain(it.title)}  (since W${it.since_week})`, { size: 9.3, spaceAfter: 4 })
       }
     }
   }
